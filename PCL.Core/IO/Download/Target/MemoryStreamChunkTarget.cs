@@ -3,7 +3,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PCL.Core.IO.Download.Targets;
+namespace PCL.Core.IO.Download.Target;
 
 public sealed class MemoryStreamChunkTarget(MemoryStream memoryStream) : IChunkTarget
 {

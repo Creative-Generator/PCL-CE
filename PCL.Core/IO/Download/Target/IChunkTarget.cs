@@ -2,7 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace PCL.Core.IO.Download.Targets;
+namespace PCL.Core.IO.Download.Target;
 
 public interface IChunkTarget
 {

@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading;
 using System.Threading.Channels;
+using System.Threading.RateLimiting;
 using System.Threading.Tasks;
 using PCL.Core.App.IoC;
 using PCL.Core.IO.Net;
@@ -27,6 +28,7 @@ public sealed class DownloadService : GeneralService
 
     private static Channel<DownloadChunk> _chunkChannel = null!;
     private static SemaphoreSlim _connectionSemaphore = null!;
+    private static TokenBucketRateLimiter? _rateLimiter;
     
     /// <summary>
     /// 并发数。
@@ -40,7 +42,12 @@ public sealed class DownloadService : GeneralService
     /// 块下载回调的报告阈值。
     /// </summary>
     public static int ChunkReportThreshold { get; set; } = 64 * 1024;
-    
+
+    /// <summary>
+    /// 限制全局每秒下载最大千字节数。默认为 <c>null</c> ，即不限制。
+    /// </summary>
+    public static int? KilobytesPerSecond { get; set; } = null;
+
     private void _Initialize()
     {
         // 初始化 Channel
@@ -48,6 +55,21 @@ public sealed class DownloadService : GeneralService
         
         // 初始化控制并发的信号量
         _connectionSemaphore = new SemaphoreSlim(MaxConcurrency, MaxConcurrency);
+        
+        if (KilobytesPerSecond > 0)
+        {
+            var kilobytesPerSecond = KilobytesPerSecond.Value;
+
+            _rateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = kilobytesPerSecond,
+                TokensPerPeriod = kilobytesPerSecond,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                AutoReplenishment = true,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = int.MaxValue
+            });
+        }
         
         // 运行 Worker
         Task.Run(WorkerAsync);
@@ -58,6 +80,9 @@ public sealed class DownloadService : GeneralService
         // 释放信号量
         _connectionSemaphore.Dispose();
     }
+    
+    // TODO: 如果可行，使用 System.Threading.Tasks.Dataflow 来替代 Channel 和 SemaphoreSlim 的组合，以简化代码
+    // 注：如果换成 TPL Dataflow，有可能导致可读性下降（尤其是对于没接触过 TPL Dataflow 的人来说）
     
     private async Task WorkerAsync()
     {
@@ -80,7 +105,7 @@ public sealed class DownloadService : GeneralService
         try
         {
             // 发送请求
-            using var response = await NetworkService.GetClient()
+            using var response = await NetworkService.GetClient(/*"cache"*/) // 注：等待其他 PR 提供的缓存支持
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, chunk.CancellationToken);
 
             // 从请求获取信息
@@ -105,6 +130,23 @@ public sealed class DownloadService : GeneralService
             // 获取缓冲区
             var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
 
+            // 单块的限速设置
+            TokenBucketRateLimiter? chunkRateLimiter = null;
+            if (chunk.KilobytesPerSecond > 0)
+            {
+                var kilobytesPerSecond = chunk.KilobytesPerSecond.Value;
+
+                chunkRateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
+                {
+                    TokenLimit = kilobytesPerSecond,
+                    TokensPerPeriod = kilobytesPerSecond,
+                    ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                    AutoReplenishment = true,
+                    QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                    QueueLimit = int.MaxValue
+                });
+            }
+            
             try
             {
                 var lastReported = 0L;
@@ -114,6 +156,19 @@ public sealed class DownloadService : GeneralService
                     // 从流读取
                     var read = await stream.ReadAsync(buffer, chunk.CancellationToken);
                     if (read <= 0) break;
+
+                    var tokens = (read + 1024 - 1) / 1024;  // 1KB
+                    
+                    // 全局限速
+                    if (_rateLimiter is not null)
+                    {
+                        using var g = await _rateLimiter.AcquireAsync(tokens, chunk.CancellationToken);
+                    }
+                    // 块限速
+                    if (chunkRateLimiter is not null)
+                    {
+                        using var c = await chunkRateLimiter.AcquireAsync(tokens, chunk.CancellationToken);
+                    }
 
                     // 向目标写入下载到的内容
                     await chunk.Target.WriteAsync(
@@ -161,6 +216,11 @@ public sealed class DownloadService : GeneralService
             {
                 // 归还缓冲区
                 ArrayPool<byte>.Shared.Return(buffer);
+                // 释放限制器
+                if (chunkRateLimiter is not null)
+                {
+                    await chunkRateLimiter.DisposeAsync();
+                }  
             }
         }
         catch (OperationCanceledException)

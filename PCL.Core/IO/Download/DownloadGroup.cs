@@ -1,5 +1,6 @@
 namespace PCL.Core.IO.Download;
 
-public class NDlTask
+public class DownloadGroup
 {
+    
 }

@@ -1,6 +1,6 @@
 using System;
 using System.Threading;
-using PCL.Core.IO.Download.Targets;
+using PCL.Core.IO.Download.Target;
 
 namespace PCL.Core.IO.Download;
 
@@ -13,5 +13,6 @@ public sealed record DownloadChunk
     public required IChunkTarget Target { get; init; }
     public Action<ChunkEvent> ChunkCallback { get; init; }
     public DownloadRequestOptions Options { get; init; }
+    public int? KilobytesPerSecond { get; init; }
     public CancellationToken CancellationToken { get; init; }
 }
