@@ -2343,7 +2343,7 @@ public partial class PageInstanceCompResource : IRefreshable
                         PageInstanceLeft.Instance.Info.HasNeoForge ? ModComp.CompLoaderType.NeoForge :
                         PageInstanceLeft.Instance.Info.HasFabric || ModdedLabyMod ? ModComp.CompLoaderType.Fabric :
                         ModComp.CompLoaderType.Any,
-                        CurrentCompType, null, null, null)
+                        CurrentCompType, null, null, null, null)
                 });
             }
             else

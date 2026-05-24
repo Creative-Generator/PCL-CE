@@ -340,7 +340,7 @@ public partial class MyCompItem
         ModMain.FrmMain.PageChange(new FormMain.PageStackData
         {
             Page = FormMain.PageType.CompDetail,
-            Additional = ((ModComp.CompProject)sender.Tag, new List<string>(), TargetVersion, TargetLoader, TargetType, null, null, null)
+            Additional = ((ModComp.CompProject)sender.Tag, new List<string>(), TargetVersion, TargetLoader, TargetType, null, null, null, null)
         });
     }
 

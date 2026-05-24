@@ -90,6 +90,7 @@ public static class ModMain
     public static PageInstanceSavesDatapack? FrmInstanceSavesDatapack;
     public static PageDownloadCompDetail? FrmDownloadCompDetail;
     public static PageHomepageNewsView? FrmHomepageNews;
+    public static PageFriends? FrmFriends;
 
     public static ModLoader.LoaderTask<int, List<HelpEntry>> HelpLoader = new("Help Page", HelpLoad, null,
         ThreadPriority.BelowNormal);

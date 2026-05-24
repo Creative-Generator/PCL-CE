@@ -1439,7 +1439,12 @@ public partial class FormMain
         /// <summary>
         ///     主页市场，这是一个副页面。
         /// </summary>
-        HomePageMarket = 13
+        HomePageMarket = 13,
+        
+        /// <summary>
+        ///     好友，这是一个副页面。
+        /// </summary>
+        Friends = 14
     }
 
     /// <summary>
@@ -1540,6 +1545,10 @@ public partial class FormMain
             {
                 return "主页市场";
             }
+            case PageType.Friends:
+            {
+                return $"{Stack.Additional?.Profile.Username ?? throw new InvalidCastException("无法读取玩家档案信息。")} 的好友";
+            }
 
             default:
             {
@@ -1635,7 +1644,8 @@ public partial class FormMain
             ModComp.CompType ResourceType,
             ModMain.HelpEntry HelpEntry,
             FrameworkElement HelpPage,
-            string SavePath
+            string SavePath,
+            ModProfile.McProfile? Profile
         )? Additional;
 
         public PageType Page;
@@ -1825,9 +1835,9 @@ public partial class FormMain
                 ModAnimation.AniStart(
                     new[]
                     {
-                    ModAnimation.AaOpacity(LabTitleInner, -LabTitleInner.Opacity, 130),
-                    ModAnimation.AaCode(() => LabTitleInner.Text = PageName, After: true),
-                    ModAnimation.AaOpacity(LabTitleInner, 1d, 150, 30)
+                        ModAnimation.AaOpacity(LabTitleInner, -LabTitleInner.Opacity, 130),
+                        ModAnimation.AaCode(() => LabTitleInner.Text = PageName, After: true),
+                        ModAnimation.AaOpacity(LabTitleInner, 1d, 150, 30)
                     }, "FrmMain Titlebar SubLayer");
                 if (PageStack.Contains(Stack))
                     // 返回到更上层的子页面
@@ -1847,13 +1857,13 @@ public partial class FormMain
                 ModAnimation.AniStart(
                     new[]
                     {
-                    ModAnimation.AaOpacity(PanTitleMain, -PanTitleMain.Opacity, 150),
-                    ModAnimation.AaX(PanTitleMain, 12d - PanTitleMain.Margin.Left, 150,
-                        Ease: new ModAnimation.AniEaseInFluent(ModAnimation.AniEasePower.Weak)),
-                    ModAnimation.AaOpacity(PanTitleInner, 1d - PanTitleInner.Opacity, 150, 200),
-                    ModAnimation.AaX(PanTitleInner, -PanTitleInner.Margin.Left, 350, 200,
-                        new ModAnimation.AniEaseOutBack()),
-                    ModAnimation.AaCode(() => PanTitleMain.Visibility = Visibility.Collapsed, After: true)
+                        ModAnimation.AaOpacity(PanTitleMain, -PanTitleMain.Opacity, 150),
+                        ModAnimation.AaX(PanTitleMain, 12d - PanTitleMain.Margin.Left, 150,
+                            Ease: new ModAnimation.AniEaseInFluent(ModAnimation.AniEasePower.Weak)),
+                        ModAnimation.AaOpacity(PanTitleInner, 1d - PanTitleInner.Opacity, 150, 200),
+                        ModAnimation.AaX(PanTitleInner, -PanTitleInner.Margin.Left, 350, 200,
+                            new ModAnimation.AniEaseOutBack()),
+                        ModAnimation.AaCode(() => PanTitleMain.Visibility = Visibility.Collapsed, After: true)
                     }, "FrmMain Titlebar FirstLayer");
                 PageStack.Insert(0, PageCurrent);
             }
@@ -1867,93 +1877,99 @@ public partial class FormMain
             switch (Stack.Page)
             {
                 case PageType.Launch: // 启动
-                    {
-                        PageChangeAnim(ModMain.FrmLaunchLeft, ModMain.FrmLaunchRight);
-                        break;
-                    }
+                {
+                    PageChangeAnim(ModMain.FrmLaunchLeft, ModMain.FrmLaunchRight);
+                    break;
+                }
                 case PageType.Download: // 下载
-                    {
-                        ModMain.FrmDownloadLeft ??= new PageDownloadLeft();
-                        SubType = ModMain.FrmDownloadLeft.PageID;
-                        // PageGet 方法会在未设置 SubType 时指定默认值，并建立相关页面的实例
-                        PageChangeAnim(ModMain.FrmDownloadLeft, (FrameworkElement)ModMain.FrmDownloadLeft.PageGet(SubType));
-                        break;
-                    }
+                {
+                    ModMain.FrmDownloadLeft ??= new PageDownloadLeft();
+                    SubType = ModMain.FrmDownloadLeft.PageID;
+                    // PageGet 方法会在未设置 SubType 时指定默认值，并建立相关页面的实例
+                    PageChangeAnim(ModMain.FrmDownloadLeft, (FrameworkElement)ModMain.FrmDownloadLeft.PageGet(SubType));
+                    break;
+                }
                 case PageType.Tools: // 联机
-                    {
-                        ModMain.FrmToolsLeft ??= new PageToolsLeft();
-                        SubType = ModMain.FrmToolsLeft.PageID;
-                        PageChangeAnim(ModMain.FrmToolsLeft, (FrameworkElement)ModMain.FrmToolsLeft.PageGet(SubType));
-                        break;
-                    }
+                {
+                    ModMain.FrmToolsLeft ??= new PageToolsLeft();
+                    SubType = ModMain.FrmToolsLeft.PageID;
+                    PageChangeAnim(ModMain.FrmToolsLeft, (FrameworkElement)ModMain.FrmToolsLeft.PageGet(SubType));
+                    break;
+                }
                 case PageType.Setup: // 设置
-                    {
-                        ModMain.FrmSetupLeft ??= new PageSetupLeft();
-                        SubType = ModMain.FrmSetupLeft.PageID;
-                        PageChangeAnim(ModMain.FrmSetupLeft, (FrameworkElement)ModMain.FrmSetupLeft.PageGet(SubType));
-                        break;
-                    }
+                {
+                    ModMain.FrmSetupLeft ??= new PageSetupLeft();
+                    SubType = ModMain.FrmSetupLeft.PageID;
+                    PageChangeAnim(ModMain.FrmSetupLeft, (FrameworkElement)ModMain.FrmSetupLeft.PageGet(SubType));
+                    break;
+                }
                 case PageType.GameLog: // 实时日志
-                    {
-                        if (ModMain.FrmLogLeft is null)
-                            ModMain.FrmLogLeft = new PageLogLeft();
-                        if (ModMain.FrmLogLeft is null)
-                            ModMain.FrmLogRight = new PageLogRight();
-                        PageChangeAnim(ModMain.FrmLogLeft, ModMain.FrmLogRight);
-                        break;
-                    }
+                {
+                    if (ModMain.FrmLogLeft is null)
+                        ModMain.FrmLogLeft = new PageLogLeft();
+                    if (ModMain.FrmLogLeft is null)
+                        ModMain.FrmLogRight = new PageLogRight();
+                    PageChangeAnim(ModMain.FrmLogLeft, ModMain.FrmLogRight);
+                    break;
+                }
                 case PageType.InstanceSelect: // 实例选择
-                    {
-                        if (ModMain.FrmSelectLeft is null)
-                            ModMain.FrmSelectLeft = new PageSelectLeft();
-                        if (ModMain.FrmSelectRight is null)
-                            ModMain.FrmSelectRight = new PageSelectRight();
-                        PageChangeAnim(ModMain.FrmSelectLeft, ModMain.FrmSelectRight);
-                        break;
-                    }
+                {
+                    if (ModMain.FrmSelectLeft is null)
+                        ModMain.FrmSelectLeft = new PageSelectLeft();
+                    if (ModMain.FrmSelectRight is null)
+                        ModMain.FrmSelectRight = new PageSelectRight();
+                    PageChangeAnim(ModMain.FrmSelectLeft, ModMain.FrmSelectRight);
+                    break;
+                }
                 case PageType.TaskManager: // 任务管理
-                    {
-                        if (ModMain.FrmSpeedLeft is null)
-                            ModMain.FrmSpeedLeft = new PageSpeedLeft();
-                        if (ModMain.FrmSpeedRight is null)
-                            ModMain.FrmSpeedRight = new PageSpeedRight();
-                        PageChangeAnim(ModMain.FrmSpeedLeft, ModMain.FrmSpeedRight);
-                        break;
-                    }
+                {
+                    if (ModMain.FrmSpeedLeft is null)
+                        ModMain.FrmSpeedLeft = new PageSpeedLeft();
+                    if (ModMain.FrmSpeedRight is null)
+                        ModMain.FrmSpeedRight = new PageSpeedRight();
+                    PageChangeAnim(ModMain.FrmSpeedLeft, ModMain.FrmSpeedRight);
+                    break;
+                }
                 case PageType.InstanceSetup: // 实例设置
-                    {
-                        ModMain.FrmInstanceLeft ??= new PageInstanceLeft();
-                        SubType = ModMain.FrmInstanceLeft.PageID;
-                        PageChangeAnim(ModMain.FrmInstanceLeft, (FrameworkElement)ModMain.FrmInstanceLeft.PageGet(SubType));
-                        break;
-                    }
+                {
+                    ModMain.FrmInstanceLeft ??= new PageInstanceLeft();
+                    SubType = ModMain.FrmInstanceLeft.PageID;
+                    PageChangeAnim(ModMain.FrmInstanceLeft, (FrameworkElement)ModMain.FrmInstanceLeft.PageGet(SubType));
+                    break;
+                }
                 case PageType.CompDetail: // Mod 信息
-                    {
-                        if (ModMain.FrmDownloadCompDetail is null)
-                            ModMain.FrmDownloadCompDetail = new PageDownloadCompDetail();
-                        PageChangeAnim(new MyPageLeft(), ModMain.FrmDownloadCompDetail);
-                        break;
-                    }
+                {
+                    if (ModMain.FrmDownloadCompDetail is null)
+                        ModMain.FrmDownloadCompDetail = new PageDownloadCompDetail();
+                    PageChangeAnim(new MyPageLeft(), ModMain.FrmDownloadCompDetail);
+                    break;
+                }
                 case PageType.HelpDetail: // 帮助详情
-                    {
-                        PageChangeAnim(new MyPageLeft(), Stack.Additional.Value.HelpPage);
-                        break;
-                    }
+                {
+                    PageChangeAnim(new MyPageLeft(), Stack.Additional.Value.HelpPage);
+                    break;
+                }
                 case PageType.VersionSaves: // 存档管理
-                    {
-                        if (ModMain.FrmInstanceSavesLeft is null)
-                            ModMain.FrmInstanceSavesLeft = new PageInstanceSavesLeft();
-                        PageInstanceSavesLeft.CurrentSave = Stack.Additional.Value.SavePath;
-                        PageChangeAnim(ModMain.FrmInstanceSavesLeft,
-                            (FrameworkElement)ModMain.FrmInstanceSavesLeft.PageGet(SubType));
-                        break;
-                    }
+                {
+                    if (ModMain.FrmInstanceSavesLeft is null)
+                        ModMain.FrmInstanceSavesLeft = new PageInstanceSavesLeft();
+                    PageInstanceSavesLeft.CurrentSave = Stack.Additional.Value.SavePath;
+                    PageChangeAnim(ModMain.FrmInstanceSavesLeft,
+                        (FrameworkElement)ModMain.FrmInstanceSavesLeft.PageGet(SubType));
+                    break;
+                }
                 case PageType.HomePageMarket: // 主页市场
-                    {
-                        ModMain.FrmHomePageMarket = ModMain.FrmHomePageMarket ?? new PageHomePageMarket();
-                        PageChangeAnim(new MyPageLeft(), ModMain.FrmHomePageMarket);
-                        break;
-                    }
+                {
+                    ModMain.FrmHomePageMarket = ModMain.FrmHomePageMarket ?? new PageHomePageMarket();
+                    PageChangeAnim(new MyPageLeft(), ModMain.FrmHomePageMarket);
+                    break;
+                }
+                case PageType.Friends: // 好友
+                {
+                    ModMain.FrmFriends ??= new PageFriends();
+                    PageChangeAnim(new MyPageLeft(), ModMain.FrmFriends);
+                    break;
+                }
             }
 
             #endregion

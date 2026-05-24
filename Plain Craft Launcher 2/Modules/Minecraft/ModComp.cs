@@ -651,7 +651,7 @@ public static class ModComp
                             {
                                 Page = FormMain.PageType.CompDetail,
                                 Additional = (compProjects.First(), new List<string>(), string.Empty, CompLoaderType.Any,
-                                    CompType.Any, null, null, null)
+                                    CompType.Any, null, null, null, null)
                             });
                         }
                     }));

@@ -353,7 +353,7 @@ public partial class PageDownloadCompFavorites
                 {
                     Page = FormMain.PageType.CompDetail,
                     Additional = ((ModComp.CompProject)CompItem.Tag, new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
-                        ((ModComp.CompProject)CompItem.Tag).Type, null, null, null)
+                        ((ModComp.CompProject)CompItem.Tag).Type, null, null, null, null)
                 });
         // ---其它事件---
         CompItem.Changed += ItemCheckStatusChanged;

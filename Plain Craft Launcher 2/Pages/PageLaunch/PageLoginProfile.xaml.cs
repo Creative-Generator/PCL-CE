@@ -127,16 +127,27 @@ public partial class PageLoginProfile
         ToolTipService.SetHorizontalOffset(btnEditServerName, 2d);
         btnEditServerName.Click += EditProfileServer;
         // 删除档案
-        var btnDelete = new MyIconButton { Logo = ModBase.Logo.IconButtonDelete, ToolTip = "删除档案", Tag = sender.Tag };
+        var btnDelete = new MyIconButton
+            { Logo = ModBase.Logo.IconButtonDelete, ToolTip = "删除档案", Tag = sender.Tag };
         ToolTipService.SetPlacement(btnDelete, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnDelete, 30d);
         ToolTipService.SetHorizontalOffset(btnDelete, 2d);
         btnDelete.Click += DeleteProfile;
+        // 好友
+        var btnFriends = new MyIconButton
+            { Logo = ModBase.Logo.IconButtonFriends, LogoScale = 1.15, ToolTip = "好友", Tag = sender.Tag };
+        ToolTipService.SetPlacement(btnDelete, PlacementMode.Center);
+        ToolTipService.SetVerticalOffset(btnDelete, 30d);
+        ToolTipService.SetHorizontalOffset(btnDelete, 2d);
+        btnFriends.Click += BtnFriends_Click;
         // 根据档案类型显示不同的菜单项
-        if (((ModProfile.McProfile)sender.Tag).Type == ModLaunch.McLoginType.Legacy)
-            sender.Buttons = new[] { btnEditUuid, btnDelete };
-        else
-            sender.Buttons = new[] { btnCopyUuid, btnDelete };
+        sender.Buttons = ((ModProfile.McProfile)sender.Tag).Type switch
+        {
+            ModLaunch.McLoginType.Legacy => [btnEditUuid, btnDelete],
+            ModLaunch.McLoginType.Auth => [btnCopyUuid, btnDelete],
+            ModLaunch.McLoginType.Ms => [btnFriends, btnCopyUuid, btnDelete],
+            _ => throw new InvalidOperationException("未知的登录类型。")
+        };
     }
 
     // 创建档案
@@ -183,6 +194,13 @@ public partial class PageLoginProfile
     {
         ModProfile.MigrateProfile();
         ModBase.RunInUi(() => RefreshProfileList());
+    }
+
+    // 好友
+    private void BtnFriends_Click(object sender, EventArgs e)
+    {
+        var profile = (ModProfile.McProfile)((MyIconButton)sender).Tag;
+        ModMain.FrmMain!.PageChange(new FormMain.PageStackData { Page = FormMain.PageType.Friends, Additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, profile)});
     }
 
     #endregion

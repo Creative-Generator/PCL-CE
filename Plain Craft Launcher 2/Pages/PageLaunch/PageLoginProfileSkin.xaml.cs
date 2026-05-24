@@ -27,18 +27,21 @@ public partial class PageLoginProfileSkin
         if (ModProfile.SelectedProfile.Type == ModLaunch.McLoginType.Ms)
         {
             BtnEdit.Visibility = Visibility.Visible;
+            BtnFriends.Visibility = Visibility.Visible;
             ModBase.Log("[Profile] 使用正版皮肤加载器");
             Skin.Loader = PageLaunchLeft.SkinMs;
         }
         else if (ModProfile.SelectedProfile.Type == ModLaunch.McLoginType.Auth)
         {
             BtnEdit.Visibility = Visibility.Visible;
+            BtnFriends.Visibility = Visibility.Collapsed;
             ModBase.Log("[Profile] 使用 Authlib 皮肤加载器");
             Skin.Loader = PageLaunchLeft.SkinAuth;
         }
         else
         {
             BtnEdit.Visibility = Visibility.Collapsed;
+            BtnFriends.Visibility = Visibility.Collapsed;
             ModBase.Log("[Profile] 使用离线皮肤加载器");
             Skin.Loader = PageLaunchLeft.SkinLegacy;
         }
@@ -152,6 +155,12 @@ public partial class PageLoginProfileSkin
                                 "user/closet");
         else
             ModMain.Hint("当前档案不支持修改披风！");
+    }
+
+    // 好友
+    private void BtnFriends_Click(object sender, EventArgs e)
+    {
+        ModMain.FrmMain!.PageChange(new FormMain.PageStackData { Page = FormMain.PageType.Friends, Additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, ModProfile.SelectedProfile) });
     }
 
     #endregion
