@@ -66,7 +66,7 @@ public static class ModProfile
             {
                 var newProfile = new McProfile
                 {
-                    Username = Profile.Key, Uuid = Conversions.ToString(McLoginMojangUuid(Profile.Key, false)),
+                    Username = Profile.Key, Uuid = McLoginMojangUuid(Profile.Key, false),
                     Type = ModLaunch.McLoginType.Ms
                 };
                 ProfileList.Add(newProfile);
@@ -153,7 +153,8 @@ public static class ModProfile
     ///     根据用户名返回对应 UUID，需要多线程
     /// </summary>
     /// <param name="name">玩家 ID</param>
-    public static object McLoginMojangUuid(string name, bool throwOnNotFound)
+    /// <param name="throwOnNotFound">未找到时是否抛出异常</param>
+    public static string McLoginMojangUuid(string name, bool throwOnNotFound)
     {
         if (name.Trim().Length == 0)
             return ModBase.StrFill("", "0", 32);

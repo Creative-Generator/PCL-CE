@@ -418,7 +418,7 @@ public partial class PageToolsTest
                 }
                 else
                 {
-                    var Result = (string)ModProfile.McLoginMojangUuid(ID, true);
+                    var Result = ModProfile.McLoginMojangUuid(ID, true);
                     Result = ModMinecraft.McSkinGetAddress(Result, "Mojang");
                     Result = ModMinecraft.McSkinDownload(Result);
                     ModBase.RunInUi(() =>

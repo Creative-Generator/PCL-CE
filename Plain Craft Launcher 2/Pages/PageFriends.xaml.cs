@@ -14,8 +14,8 @@ public partial class PageFriends
         DataContext = new FriendsViewModel(profile);
         // 傻逼 WPF
         foreach (MyRadioButton Btn in PanFriendsFilter.Children)
-            Btn.LabText.Margin = new Thickness(-2, 0d, 8d, 0d);
+            Btn.LabText.Margin = new Thickness(-3, 0d, 8d, 0d);
         foreach (MyRadioButton Btn in PanRequestsFilter.Children)
-            Btn.LabText.Margin = new Thickness(-2, 0d, 8d, 0d);
+            Btn.LabText.Margin = new Thickness(-3, 0d, 8d, 0d);
     }
 }

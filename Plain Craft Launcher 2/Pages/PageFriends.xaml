@@ -5,42 +5,72 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:PCL"
+    d:DataContext="{d:DesignInstance Type=local:FriendsViewModel}"
     mc:Ignorable="d">
     <Grid>
-        <StackPanel Orientation="Vertical" Margin="25">
-            <local:MyCard Margin="0,0,0,15">
-                <WrapPanel Margin="15,8,0,15">
-                    <local:MyButton MinWidth="110" Text="添加好友" Padding="13,7" Margin="0,7,15,0"
-                                    HorizontalAlignment="Left" x:Name="BtnAddFriends" ColorType="Highlight" />
-                    <local:MyButton MinWidth="110" Text="Xbox 设置" Padding="13,7" Margin="0,7,15,0"
-                                    HorizontalAlignment="Left" x:Name="BtnXboxSettings" />
-                </WrapPanel>
-            </local:MyCard>
-            <local:MySearchBox Margin="0,0,0,15" HintText="搜索好友" />
-            <local:MyCard x:Name="PanRequests" Margin="0,0,0,15" Title="好友请求">
-                <StackPanel x:Name="PanRequestsFilter" Margin="15,32,0,0" Orientation="Horizontal"
-                            VerticalAlignment="Top" HorizontalAlignment="Left" Height="28">
-                    <local:MyRadioButton Tag="0" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="全部" x:Name="BtnFilterRequestsAll" Checked="True" />
-                    <local:MyRadioButton Tag="1" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="待处理" x:Name="BtnFilterRequestsIncoming" />
-                    <local:MyRadioButton Tag="2" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="已发送" x:Name="BtnFilterRequestsSent" />
-                </StackPanel>
-            </local:MyCard>
-            <local:MyCard x:Name="PanFriends" Margin="0,0,0,15" Title="好友列表">
-                <StackPanel x:Name="PanFriendsFilter" Margin="15,32,0,0" Orientation="Horizontal"
-                            VerticalAlignment="Top" HorizontalAlignment="Left" Height="28">
-                    <local:MyRadioButton Tag="0" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="全部" x:Name="BtnFilterFriendsAll" Checked="True" />
-                    <local:MyRadioButton Tag="1" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="在线" x:Name="BtnFilterFriendsOnline" />
-                    <local:MyRadioButton Tag="2" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
-                                         Text="离线" x:Name="BtnFilterFriendsOffline" />
-
-                </StackPanel>
-            </local:MyCard>
-        </StackPanel>
+        <local:MyScrollViewer>
+            <StackPanel Orientation="Vertical" Margin="25">
+                <local:MyCard Margin="0,0,0,15">
+                    <WrapPanel Margin="15,8,0,15">
+                        <local:MyButton MinWidth="110" Text="添加好友" Padding="13,7" Margin="0,7,15,0"
+                            HorizontalAlignment="Left" x:Name="BtnAddFriends" ColorType="Highlight" />
+                        <local:MyButton MinWidth="110" Text="Xbox 设置" Padding="13,7" Margin="0,7,15,0"
+                            HorizontalAlignment="Left" x:Name="BtnXboxSettings" />
+                    </WrapPanel>
+                </local:MyCard>
+                <local:MySearchBox Margin="0,0,0,15" HintText="搜索好友" />
+                <local:MyCard x:Name="PanRequests" Margin="0,0,0,15" Title="好友请求">
+                    <Grid Margin="0,32,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="4" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel x:Name="PanRequestsFilter" Margin="15,0,0,0" Orientation="Horizontal"
+    VerticalAlignment="Top" HorizontalAlignment="Left" Height="28">
+                            <local:MyRadioButton Tag="0" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="全部" x:Name="BtnFilterRequestsAll" Checked="True" />
+                            <local:MyRadioButton Tag="1" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="待处理" x:Name="BtnFilterRequestsIncoming" />
+                            <local:MyRadioButton Tag="2" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="已发送" x:Name="BtnFilterRequestsSent" />
+                        </StackPanel>
+                        <ItemsControl Grid.Row="2" x:Name="PanRequestsList" Margin="15,0" ItemsSource="{Binding Requests}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <local:MyListItem Type="None" Title="{Binding Name}" Logo="{Binding Logo}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </local:MyCard>
+                <local:MyCard x:Name="PanFriends" Margin="0,0,0,15" Title="好友列表">
+                    <Grid Margin="0,32,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="4" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0" x:Name="PanFriendsFilter" Margin="15,0,0,0" Orientation="Horizontal"
+    VerticalAlignment="Top" HorizontalAlignment="Left" Height="28">
+                            <local:MyRadioButton Tag="0" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="全部" x:Name="BtnFilterFriendsAll" Checked="True" />
+                            <local:MyRadioButton Tag="1" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="在线" x:Name="BtnFilterFriendsOnline" />
+                            <local:MyRadioButton Tag="2" ColorType="Highlight" VerticalAlignment="Center" Margin="2,0"
+                 Text="离线" x:Name="BtnFilterFriendsOffline" />
+                        </StackPanel>
+                        <ItemsControl Grid.Row="2" x:Name="PanFriendsList" Margin="15,0" ItemsSource="{Binding Friends}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <local:MyListItem Type="None" Title="{Binding Name}" Logo="{Binding Logo}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+                </local:MyCard>
+            </StackPanel>
+        </local:MyScrollViewer>
         <local:MyCard Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="40,0"
                       SnapsToDevicePixels="True" x:Name="PanLoad" UseAnimation="False">
             <local:MyLoading Text="正在加载好友列表" Margin="20,20,20,17" x:Name="Load" HorizontalAlignment="Center"

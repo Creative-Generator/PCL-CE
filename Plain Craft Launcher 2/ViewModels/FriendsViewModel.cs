@@ -1,13 +1,18 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace PCL;
 
-public class FriendsViewModel : ObservableObject
+public partial class FriendsViewModel(ModProfile.McProfile profile) : ObservableObject
 {
-    private ModProfile.McProfile _profile;
+    private ModProfile.McProfile _profile = profile;
 
-    public FriendsViewModel(ModProfile.McProfile profile)
-    {
-        _profile = profile;
-    }
+    [ObservableProperty] private ObservableCollection<FriendsItemViewModel> _friends = [new FriendsItemViewModel(), 
+        new FriendsItemViewModel(),
+        new FriendsItemViewModel(),
+        new FriendsItemViewModel(),
+        new FriendsItemViewModel(),
+        new FriendsItemViewModel(),
+        new FriendsItemViewModel()];
+    [ObservableProperty] private ObservableCollection<FriendsItemViewModel> _requests = [];
 }
