@@ -1,16 +1,14 @@
-using PCL.Core.App;
+﻿using PCL.Core.App;
 using PCL.Core.Link.EasyTier;
 using PCL.Core.Link.Scaffolding.Client.Models;
 using PCL.Core.Logging;
 using PCL.Core.Utils;
-using Polly;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -502,7 +500,7 @@ public class EasyTierEntity
             var output = stdOut + stdErr;
             //LogWrapper.Debug("ET Cli", output);
 
-            if (JsonNode.Parse(output) is not JsonArray jArray)
+            if (JsonCompat.ParseNode(output) is not JsonArray jArray)
             {
                 return new EtPlayerList(null, null);
             }
@@ -514,8 +512,8 @@ public class EasyTierEntity
             {
                 LogWrapper.Debug("Et Cli", "Getting player info.");
 
-                var info = arr.Deserialize<ETPeerInfo>();
-                if (info == null)
+                var info = arr.Deserialize<ETPeerInfo>(JsonCompat.SerializerOptions);
+                if (info is null)
                 {
                     LogWrapper.Debug("Et Cli", "Player info is null.");
                     continue;

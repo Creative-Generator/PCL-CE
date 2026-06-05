@@ -4,7 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Text;
 using Downloader;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using PCL.Core.IO.Net;
 using PCL.Core.IO.Net.Http;
 
@@ -37,22 +37,22 @@ public static class Requester
         return FetchStringAsync(url, param).GetAwaiter().GetResult();
     }
 
-    public static async Task<object> FetchJsonAsync(string url, RequestParam param = default)
+    public static async Task<JsonNode> FetchJsonAsync(string url, RequestParam param = default)
     {
-        return JToken.Parse(await FetchStringAsync(url, param).ConfigureAwait(false));
+        return ModBase.GetJson(await FetchStringAsync(url, param).ConfigureAwait(false));
     }
 
-    public static async Task<T> FetchJsonAsync<T>(string url, RequestParam param = default)
+    public static async Task<T> FetchJsonAsync<T>(string url, RequestParam param = default) where T : JsonNode
     {
-        return (T)(object)await FetchJsonAsync(url, param).ConfigureAwait(false);
+        return (T)await FetchJsonAsync(url, param).ConfigureAwait(false);
     }
 
-    public static object FetchJson(string url, RequestParam param = default)
+    public static JsonNode FetchJson(string url, RequestParam param = default)
     {
         return FetchJsonAsync(url, param).GetAwaiter().GetResult();
     }
 
-    public static T FetchJson<T>(string url, RequestParam param = default)
+    public static T FetchJson<T>(string url, RequestParam param = default) where T : JsonNode
     {
         return FetchJsonAsync<T>(url, param).GetAwaiter().GetResult();
     }
@@ -108,9 +108,16 @@ public static class Requester
                     request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             if (SupportBody(request.Method) && param.Content is not null)
             {
-                var content = param.Content is string text ? text : param.Content.ToString() ?? "";
-                request.Content = new StringContent(content, param.Encoding ?? Encoding.UTF8,
-                    param.ContentType ?? "application/json");
+                if (param.Content is HttpContent httpContent)
+                {
+                    request.Content = httpContent;
+                }
+                else
+                {
+                    var content = param.Content is string text ? text : param.Content.ToString() ?? "";
+                    request.Content = new StringContent(content, param.Encoding ?? Encoding.UTF8,
+                        param.ContentType ?? "application/json");
+                }
             }
 
             using var cts = new CancellationTokenSource();
@@ -144,7 +151,7 @@ public static class Requester
             ParallelCount = Math.Max(1, ModNet.NetTaskThreadLimit),
             ParallelDownload = ModNet.NetTaskThreadLimit > 1,
             MaximumBytesPerSecond = ModNet.NetTaskSpeedLimitHigh > 0 ? ModNet.NetTaskSpeedLimitHigh : 0,
-            DownloadFileExtension = ModNet.NetDownloadEnd,
+            DownloadFileExtension = ModNet.netDownloadEnd,
             EnableAutoResumeDownload = false,
             RequestConfiguration = DownloadRequestFactory.Create(url, useBrowserUserAgent)
         });
