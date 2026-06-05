@@ -116,7 +116,7 @@ public partial class PageToolsHelp : IRefreshable
                 var frmHelpDetail = new PageOtherHelpDetail();
                 if (frmHelpDetail.Init(entry))
                     ModMain.frmMain.PageChange(new FormMain.PageStackData
-                        { page = FormMain.PageType.HelpDetail, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, Entry, frmHelpDetail, null, null) });
+                        { page = FormMain.PageType.HelpDetail, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, entry, frmHelpDetail, null, null) });
                 else
                     ModBase.Log("[Help] 已取消进入帮助项目，这一般是由于 xaml 初始化失败，且用户在弹窗中手动放弃", ModBase.LogLevel.Debug);
             });
@@ -131,8 +131,8 @@ public partial class PageToolsHelp : IRefreshable
                 ModMain.helpLoader.WaitForExit(ModBase.GetUuid());
             ModBase.RunInUi(() =>
             {
-                var FrmHelpDetail = new PageOtherHelpDetail();
-                if (FrmHelpDetail.Init(entry))
+                var frmHelpDetail = new PageOtherHelpDetail();
+                if (frmHelpDetail.Init(entry))
                     ModMain.frmMain.PageChange(new FormMain.PageStackData
                         { page = FormMain.PageType.HelpDetail, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, entry, frmHelpDetail, null, null) });
                 else

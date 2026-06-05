@@ -144,7 +144,7 @@ public partial class PageLoginProfile
         btnDelete.Click += DeleteProfile;
         // 好友
         var btnFriends = new MyIconButton
-            { Logo = ModBase.Logo.IconButtonFriends, LogoScale = 1.15, ToolTip = "好友", Tag = sender.Tag };
+            { Logo = ModBase.IconButtonFriends, LogoScale = 1.15, ToolTip = "好友", Tag = sender.Tag };
         ToolTipService.SetPlacement(btnDelete, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnDelete, 30d);
         ToolTipService.SetHorizontalOffset(btnDelete, 2d);
@@ -209,7 +209,7 @@ public partial class PageLoginProfile
     private void BtnFriends_Click(object sender, EventArgs e)
     {
         var profile = (ModProfile.McProfile)((MyIconButton)sender).Tag;
-        ModMain.FrmMain!.PageChange(new FormMain.PageStackData { Page = FormMain.PageType.Friends, Additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, profile)});
+        ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, profile)});
     }
 
     #endregion

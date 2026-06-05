@@ -9,7 +9,7 @@ public partial class PageFriends
         InitializeComponent();
 
         // 加载 McProfile
-        var profile = ModMain.FrmMain?.PageCurrent.Additional?.Profile ?? throw new InvalidOperationException("无法读取玩家档案信息。");
+        var profile = ModMain.frmMain?.pageCurrent.additional?.Profile ?? throw new InvalidOperationException("无法读取玩家档案信息。");
         // MVVM
         DataContext = new FriendsViewModel(profile);
         // 傻逼 WPF

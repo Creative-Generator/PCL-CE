@@ -340,8 +340,8 @@ public partial class PageDownloadCompFavorites
                 new FormMain.PageStackData
                 {
                     page = FormMain.PageType.CompDetail,
-                    additional = ((ModComp.CompProject)CompItem.Tag, new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
-                        ((ModComp.CompProject)CompItem.Tag).Type, null, null, null, null)
+                    additional = ((ModComp.CompProject)compItem.Tag, new List<string>(), string.Empty, ModComp.CompLoaderType.Any,
+                        ((ModComp.CompProject)compItem.Tag).Type, null, null, null, null)
                 });
         // ---其它事件---
         compItem.Changed += ItemCheckStatusChanged;

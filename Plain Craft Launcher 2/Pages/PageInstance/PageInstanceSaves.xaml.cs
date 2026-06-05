@@ -272,8 +272,8 @@ public partial class PageInstanceSaves : IRefreshable
                         SvgIcon = "lucide/info",
                         ToolTip = Lang.Text("Instance.Saves.Details")
                     };
-                    BtnInfo.Click += (_, _) => ModMain.FrmMain.PageChange(new FormMain.PageStackData
-                        { Page = FormMain.PageType.VersionSaves, Additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, tmpCurFolder) });
+                    btnInfo.Click += (_, _) => ModMain.frmMain.PageChange(new FormMain.PageStackData
+                        { page = FormMain.PageType.VersionSaves, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, tmpCurFolder, null) });
 
                     var btnLaunch = new MyIconButton
                     {

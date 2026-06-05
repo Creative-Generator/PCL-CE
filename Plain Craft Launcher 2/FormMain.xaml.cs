@@ -1553,7 +1553,8 @@ public partial class FormMain
             }
             case PageType.Friends:
             {
-                return $"{Stack.Additional?.Profile.Username ?? throw new InvalidCastException("无法读取玩家档案信息。")} 的好友";
+                // TODO: 多语言
+                return $"{stack.additional?.Profile.Username ?? throw new InvalidCastException("无法读取玩家档案信息。")} 的好友";
             }
 
             default:
