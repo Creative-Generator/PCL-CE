@@ -1,7 +1,7 @@
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using Microsoft.VisualBasic;
+using PCL.Core.App;
 using PCL.Core.IO.Net.Http;
 using PCL.Core.Link.Natayark;
 
@@ -239,14 +239,14 @@ public static class ModWebServer
         }
     }
 
-    private static readonly object ChangeLock = new();
-    private static string PicAddress;
+    private static readonly object changeLock = new();
+    private static string picAddress;
 
-    public static object BackgroundPicChangeCallback(string Pic)
+    public static object BackgroundPicChangeCallback(string pic)
     {
-        lock (ChangeLock)
+        lock (changeLock)
         {
-            PicAddress = Pic;
+            picAddress = pic;
             return true;
         }
     }
@@ -285,9 +285,9 @@ public static class ModWebServer
                     NaidCallbackServer? server;
 
                     string currentPicAddress;
-                    lock (ChangeLock)
+                    lock (changeLock)
                     {
-                        currentPicAddress = PicAddress;
+                        currentPicAddress = picAddress;
                     }
 
                     server = new NaidCallbackServer(serviceName, completeCallback, currentPicAddress);
@@ -310,13 +310,13 @@ public static class ModWebServer
     {
         Exception? resultEx = null;
         StartOAuthWaitingCallback("NatayarkID",
-            $"https://account.naids.com/oauth2/authorize?response_type=code&client_id={ModSecret.NatayarkClientId}&redirect_uri=%r",
+            $"https://account.naids.com/oauth2/authorize?response_type=code&client_id={Secrets.NatayarkClientId}&redirect_uri=%r",
             (success, parameters, content) =>
             {
                 OAuthCompleteStatus? status;
                 if (!success)
                 {
-                    ModMain.MyMsgBox(content, IsWarn: true);
+                    ModMain.MyMsgBox(content, isWarn: true);
                     completeCallback?.Invoke();
                     return null;
                 }

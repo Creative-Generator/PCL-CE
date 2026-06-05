@@ -8,31 +8,23 @@ namespace PCL;
 
 public partial class MyMsgText
 {
-    private readonly ModMain.MyMsgBoxConverter MyConverter;
-    private readonly int Uuid = ModBase.GetUuid();
+    private readonly ModMain.MyMsgBoxConverter myConverter;
+    private readonly int uuid = ModBase.GetUuid();
 
-    public MyMsgText(ModMain.MyMsgBoxConverter Converter)
+    public MyMsgText(ModMain.MyMsgBoxConverter converter)
     {
         try
         {
             InitializeComponent();
-            Btn1.Name = Btn1.Name + ModBase.GetUuid();
-            Btn2.Name = Btn2.Name + ModBase.GetUuid();
-            Btn3.Name = Btn3.Name + ModBase.GetUuid();
-            MyConverter = Converter;
-            LabTitle.Text = Converter.Title;
-            LabCaption.Text = Converter.Text;
-            Btn1.Text = Converter.Button1;
-            if (Converter.IsWarn)
-            {
-                Btn1.ColorType = MyButton.ColorState.Red;
-                LabTitle.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrushRedLight");
-            }
-
-            Btn2.Text = Converter.Button2;
-            Btn3.Text = Converter.Button3;
-            Btn2.Visibility = string.IsNullOrEmpty(Converter.Button2) ? Visibility.Collapsed : Visibility.Visible;
-            Btn3.Visibility = string.IsNullOrEmpty(Converter.Button3) ? Visibility.Collapsed : Visibility.Visible;
+            AppendUniqueNameSuffix(Btn1);
+            AppendUniqueNameSuffix(Btn2);
+            AppendUniqueNameSuffix(Btn3);
+            myConverter = converter;
+            LabTitle.Text = converter.Title;
+            LabCaption.Text = converter.Text;
+            ConfigurePrimaryButton(converter.Button1, converter.IsWarn);
+            ConfigureSecondaryButton(Btn2, converter.Button2);
+            ConfigureSecondaryButton(Btn3, converter.Button3);
             ShapeLine.StrokeThickness = ModBase.GetWPFSize(1d);
         }
 
@@ -42,6 +34,27 @@ public partial class MyMsgText
         }
 
         Loaded += Load;
+    }
+
+    private void AppendUniqueNameSuffix(FrameworkElement element)
+    {
+        element.Name += ModBase.GetUuid();
+    }
+
+    private void ConfigurePrimaryButton(string text, bool isWarn)
+    {
+        Btn1.Text = text;
+        if (isWarn)
+        {
+            Btn1.ColorType = MyButton.ColorState.Red;
+            LabTitle.SetResourceReference(TextBlock.ForegroundProperty, "ColorBrushRedLight");
+        }
+    }
+
+    private static void ConfigureSecondaryButton(MyButton button, string text)
+    {
+        button.Text = text;
+        button.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void Load(object sender, RoutedEventArgs e)
@@ -55,10 +68,10 @@ public partial class MyMsgText
             // 动画
             Opacity = 0d;
             ModAnimation.AniStart(
-                ModAnimation.AaColor(ModMain.FrmMain.PanMsgBackground, BlurBorder.BackgroundProperty,
-                    (MyConverter.IsWarn
+                ModAnimation.AaColor(ModMain.frmMain.PanMsgBackground, BlurBorder.BackgroundProperty,
+                    (myConverter.IsWarn
                         ? new ModBase.MyColor(140d, 80d, 0d, 0d)
-                        : new ModBase.MyColor(90d, 0d, 0d, 0d)) - ModMain.FrmMain.PanMsgBackground.Background, 200),
+                        : new ModBase.MyColor(90d, 0d, 0d, 0d)) - ModMain.frmMain.PanMsgBackground.Background, 200),
                 "PanMsgBackground Background");
             ModAnimation.AniStart(
                 new[]
@@ -69,7 +82,7 @@ public partial class MyMsgText
                     ModAnimation.AaDouble(i => TransformRotate.Angle += (double)i,
                         -TransformRotate.Angle, 300, 60,
                         new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.Weak))
-                }, "MyMsgBox " + Uuid);
+                }, "MyMsgBox " + uuid);
             // 记录日志
             ModBase.Log("[Control] 普通弹窗：" + LabTitle.Text + "\r\n" + LabCaption.Text);
         }
@@ -83,8 +96,8 @@ public partial class MyMsgText
     private void Close()
     {
         // 结束线程阻塞
-        if (MyConverter.ForceWait || !string.IsNullOrEmpty(MyConverter.Button2))
-            MyConverter.WaitFrame.Continue = false;
+        if (myConverter.ForceWait || !string.IsNullOrEmpty(myConverter.Button2))
+            myConverter.WaitFrame.Continue = false;
         ComponentDispatcher.PopModal();
         // 动画
         ModAnimation.AniStart(new[]
@@ -92,64 +105,64 @@ public partial class MyMsgText
             ModAnimation.AaCode(() =>
             {
                 if (!ModMain.WaitingMyMsgBox.Any())
-                    ModAnimation.AniStart(ModAnimation.AaColor(ModMain.FrmMain.PanMsgBackground,
+                    ModAnimation.AniStart(ModAnimation.AaColor(ModMain.frmMain.PanMsgBackground,
                         BlurBorder.BackgroundProperty,
-                        new ModBase.MyColor(0d, 0d, 0d, 0d) - ModMain.FrmMain.PanMsgBackground.Background, 200,
-                        Ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.Weak)));
+                        new ModBase.MyColor(0d, 0d, 0d, 0d) - ModMain.frmMain.PanMsgBackground.Background, 200,
+                        ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.Weak)));
             }, 30),
             ModAnimation.AaOpacity(this, -Opacity, 80, 20),
             ModAnimation.AaDouble(i => TransformPos.Y += (double)i, 20d - TransformPos.Y,
                 150, 0, new ModAnimation.AniEaseOutFluent()),
             ModAnimation.AaDouble(i => TransformRotate.Angle += (double)i,
                 6d - TransformRotate.Angle, 150, 0, new ModAnimation.AniEaseInFluent(ModAnimation.AniEasePower.Weak)),
-            ModAnimation.AaCode(() => ((Grid)Parent).Children.Remove(this), After: true)
-        }, "MyMsgBox " + Uuid);
+            ModAnimation.AaCode(() => ((Grid)Parent).Children.Remove(this), after: true)
+        }, "MyMsgBox " + uuid);
     }
 
     public void Btn1_Click(object? sender = null, MouseButtonEventArgs? e = null)
     {
-        if (MyConverter.IsExited)
+        if (myConverter.IsExited)
             return;
-        if (MyConverter.Button1Action is not null)
+        if (myConverter.Button1Action is not null)
         {
-            MyConverter.Button1Action();
+            myConverter.Button1Action();
         }
         else
         {
-            MyConverter.IsExited = true;
-            MyConverter.Result = 1;
+            myConverter.IsExited = true;
+            myConverter.Result = 1;
             Close();
         }
     }
 
     public void Btn2_Click(object sender, MouseButtonEventArgs e)
     {
-        if (MyConverter.IsExited)
+        if (myConverter.IsExited)
             return;
-        if (MyConverter.Button2Action is not null)
+        if (myConverter.Button2Action is not null)
         {
-            MyConverter.Button2Action();
+            myConverter.Button2Action();
         }
         else
         {
-            MyConverter.IsExited = true;
-            MyConverter.Result = 2;
+            myConverter.IsExited = true;
+            myConverter.Result = 2;
             Close();
         }
     }
 
     public void Btn3_Click(object sender, MouseButtonEventArgs e)
     {
-        if (MyConverter.IsExited)
+        if (myConverter.IsExited)
             return;
-        if (MyConverter.Button3Action is not null)
+        if (myConverter.Button3Action is not null)
         {
-            MyConverter.Button3Action();
+            myConverter.Button3Action();
         }
         else
         {
-            MyConverter.IsExited = true;
-            MyConverter.Result = 3;
+            myConverter.IsExited = true;
+            myConverter.Result = 3;
             Close();
         }
     }
@@ -160,7 +173,7 @@ public partial class MyMsgText
         {
             if (e.LeftButton == MouseButtonState.Pressed)
                 if (e.GetPosition(ShapeLine).Y <= 2d)
-                    ModMain.FrmMain.DragMove();
+                    ModMain.frmMain.DragMove();
         }
         catch (Exception ex)
         {

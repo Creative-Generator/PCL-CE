@@ -7,28 +7,30 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.VisualBasic;
-using Microsoft.VisualBasic.CompilerServices;
-using Newtonsoft.Json.Linq;
 using PCL.Core.App;
+using PCL.Core.App.Localization;
 using PCL.Core.UI;
 using PCL.Core.Utils;
 using PCL.Core.Utils.Exts;
+using PCL.Core.Utils.OS;
 using PCL.Network;
 
 namespace PCL;
 
 public static class ModMinecraft
 {
+    public const string UNKNOWN_VERSION_KEY = "UnknownVersion";
+
     /// <summary>
     ///     发送 Minecraft 更新提示。
     /// </summary>
-    public static void McDownloadClientUpdateHint(string versionName, JObject json)
+    public static void McDownloadClientUpdateHint(string versionName, JsonObject json)
     {
         try
         {
             // 获取对应版本
-            JToken version = null;
-            foreach (var Token in json["versions"])
+            JsonNode version = null;
+            foreach (var Token in json["versions"].AsArray())
                 if (Token["id"] is not null && (Token["id"].ToString() ?? "") == (versionName ?? ""))
                 {
                     version = Token;
@@ -38,26 +40,28 @@ public static class ModMinecraft
             // 进行提示
             if (version is null)
                 return;
-            var time = (DateTime)version["releaseTime"];
-            var msgBoxText = $"新版本：{versionName}{"\r\n"}" + ((DateTime.Now - time).TotalDays > 1d
-                ? "更新时间：" + time
-                : "更新于：" + TimeUtils.GetTimeSpanString(time - DateTime.Now, false));
-            var msgResult = ModMain.MyMsgBox(msgBoxText, "Minecraft 更新提示", "确定", "下载",
-                (DateTime.Now - time).TotalHours > 3d ? "更新日志" : "",
-                Button3Action: () => ModDownloadLib.McUpdateLogShow(version));
+            var time = version["releaseTime"].ToObject<DateTime>();
+            var msgBoxText = Lang.Text("Minecraft.Update.NewVersion", versionName) + "\r\n" +
+                             ((DateTime.Now - time).TotalDays > 1d
+                                 ? Lang.Text("Minecraft.Update.UpdateTime") + Lang.Date(time)
+                                 : Lang.Text("Minecraft.Update.UpdatedAt") + Lang.TimeSpan(time - DateTime.Now));
+            var msgResult = ModMain.MyMsgBox(msgBoxText, Lang.Text("Minecraft.Update.Title"),
+                Lang.Text("Common.Action.Confirm"), Lang.Text("Common.Action.Download"),
+                (DateTime.Now - time).TotalHours > 3d ? Lang.Text("Common.Action.UpdateLog") : "",
+                button3Action: () => ModDownloadLib.McUpdateLogShow(version));
             // 弹窗结果
             if (msgResult == 2)
                 // 下载
                 ModBase.RunInUi(() =>
                 {
-                    PageDownloadInstall.McVersionWaitingForSelect = versionName;
-                    ModMain.FrmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadInstall);
+                    PageDownloadInstall.mcVersionWaitingForSelect = versionName;
+                    ModMain.frmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadInstall);
                 });
         }
 
         catch (Exception ex)
         {
-            ModBase.Log(ex, "Minecraft 更新提示发送失败（" + (versionName ?? "Nothing") + "）", ModBase.LogLevel.Feedback);
+            ModBase.Log(ex, Lang.Text("Minecraft.Error.UpdateNotify", versionName ?? "Nothing"), ModBase.LogLevel.Feedback);
         }
     }
 
@@ -78,13 +82,13 @@ public static class ModMinecraft
     /// </summary>
     public static int CompareVersion(string left, string right)
     {
-        if (left == "未知版本" || right == "未知版本")
+        if (left == Lang.Text("Minecraft.Version.Unknown") || right == Lang.Text("Minecraft.Version.Unknown"))
         {
-            if (left == "未知版本" && right != "未知版本")
+            if (left == Lang.Text("Minecraft.Version.Unknown") && right != Lang.Text("Minecraft.Version.Unknown"))
                 return 1;
-            if (left == "未知版本" && right == "未知版本")
+            if (left == Lang.Text("Minecraft.Version.Unknown") && right == Lang.Text("Minecraft.Version.Unknown"))
                 return 0;
-            if (left != "未知版本" && right == "未知版本")
+            if (left != Lang.Text("Minecraft.Version.Unknown") && right == Lang.Text("Minecraft.Version.Unknown"))
                 return -1;
         }
 
@@ -98,16 +102,16 @@ public static class ModMinecraft
             // 两边均缺失，感觉是一个东西
             if (lefts.Count - 1 < i && rights.Count - 1 < i)
             {
-                if (Operators.CompareString(left, right, false) > 0)
+                if (string.CompareOrdinal(left, right) > 0)
                     return 1;
-                if (Operators.CompareString(left, right, false) < 0)
+                if (string.CompareOrdinal(left, right) < 0)
                     return -1;
                 return 0;
             }
 
             // 确定两边的数值
-            var leftValue = Conversions.ToString(lefts.Count - 1 < i ? 0 : lefts[i]);
-            var rightValue = Conversions.ToString(rights.Count - 1 < i ? 0 : rights[i]);
+            var leftValue = lefts.Count - 1 < i ? "0" : lefts[i];
+            var rightValue = rights.Count - 1 < i ? "0" : rights[i];
             if ((leftValue ?? "") == (rightValue ?? ""))
                 goto NextEntry;
             if (leftValue == "rc")
@@ -131,9 +135,9 @@ public static class ModMinecraft
             if (leftValValue == 0d && rightValValue == 0d)
             {
                 // 如果没有数值则直接比较字符串
-                if (Operators.CompareString(leftValue, rightValue, false) > 0) return 1;
+                if (string.CompareOrdinal(leftValue, rightValue) > 0) return 1;
 
-                if (Operators.CompareString(leftValue, rightValue, false) < 0) return -1;
+                if (string.CompareOrdinal(leftValue, rightValue) < 0) return -1;
             }
             // 如果有数值则比较数值
             // 这会使得一边是数字一边是字母时数字方更大
@@ -157,32 +161,31 @@ public static class ModMinecraft
     /// <summary>
     ///     打码字符串中的 AccessToken。
     /// </summary>
-    public static string FilterAccessToken(string Raw, char FilterChar)
+    public static string FilterAccessToken(string raw, char filterChar)
     {
         // 打码 "accessToken " 后的内容
-        if (Raw.Contains("accessToken "))
-            foreach (var Token in Raw.RegexSearch("(?<=accessToken ([^ ]{5}))[^ ]+(?=[^ ]{5})"))
-                Raw = Raw.Replace(Token, new string(FilterChar, Token.Count()));
+        if (raw.Contains("accessToken "))
+            foreach (var Token in raw.RegexSearch("(?<=accessToken ([^ ]{5}))[^ ]+(?=[^ ]{5})"))
+                raw = raw.Replace(Token, new string(filterChar, Token.Count()));
         // 打码当前登录的结果
-        var AccessToken = ModLaunch.McLoginLoader.Output.AccessToken;
-        if (AccessToken is not null && AccessToken.Length >= 10 && Raw.ContainsF(AccessToken, true) &&
-            (ModLaunch.McLoginLoader.Output.Uuid ?? "") !=
-            (ModLaunch.McLoginLoader.Output.AccessToken ?? "")) // UUID 和 AccessToken 一样则不打码
-            Raw = Raw.Replace(AccessToken,
-                Strings.Left(AccessToken, 5) + new string(FilterChar, AccessToken.Length - 10) +
-                Strings.Right(AccessToken, 5));
-        return Raw;
+        var accessToken = ModLaunch.mcLoginLoader.output.AccessToken;
+        if (accessToken is not null && accessToken.Length >= 10 && raw.ContainsF(accessToken, true) &&
+            (ModLaunch.mcLoginLoader.output.Uuid ?? "") !=
+            (ModLaunch.mcLoginLoader.output.AccessToken ?? "")) // UUID 和 AccessToken 一样则不打码
+            raw = raw.Replace(accessToken, accessToken[..5] + new string(filterChar, accessToken.Length - 10) +
+                                           accessToken[^5..]);
+        return raw;
     }
 
     /// <summary>
     ///     打码字符串中的 Windows 用户名。
     /// </summary>
-    public static string FilterUserName(string Raw, char FilterChar)
+    public static string FilterUserName(string raw, char filterChar)
     {
-        var UserProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        var UserName = UserProfile.Split(@"\").Last();
-        var MaskedProfile = UserProfile.Replace(UserName, new string(FilterChar, UserName.Length));
-        return Raw.Replace(UserProfile, MaskedProfile);
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var userName = userProfile.Split(@"\").Last();
+        var maskedProfile = userProfile.Replace(userName, new string(filterChar, userName.Length));
+        return raw.Replace(userProfile, maskedProfile);
     }
 
     /// <summary>
@@ -201,12 +204,12 @@ public static class ModMinecraft
     /// <summary>
     ///     当前的 Minecraft 文件夹路径，以“\”结尾。
     /// </summary>
-    public static string McFolderSelected;
+    public static string mcFolderSelected;
 
     /// <summary>
     ///     当前的 Minecraft 文件夹列表。
     /// </summary>
-    public static List<McFolder> McFolderList = new();
+    public static List<McFolder> mcFolderList = new();
 
     public class McFolder // 必须是 Class，否则不是引用类型，在 ForEach 中不会得到刷新
     {
@@ -224,15 +227,15 @@ public static class ModMinecraft
         public string Location;
 
         public string Name;
-        public Types Type;
+        public Types type;
 
         public override bool Equals(object obj)
         {
-            if (!(obj is McFolder))
+            if (obj is not McFolder)
                 return false;
             var folder = (McFolder)obj;
             return (Name ?? "") == (folder.Name ?? "") && (Location ?? "") == (folder.Location ?? "") &&
-                   Type == folder.Type;
+                   type == folder.type;
         }
 
         public override string ToString()
@@ -244,8 +247,8 @@ public static class ModMinecraft
     /// <summary>
     ///     加载 Minecraft 文件夹列表。
     /// </summary>
-    public static ModLoader.LoaderTask<int, int> McFolderListLoader = new("Minecraft Folder List",
-        _ => McFolderListLoadSub(), Priority: ThreadPriority.AboveNormal);
+    public static ModLoader.LoaderTask<int, int> mcFolderListLoader = new("Minecraft Folder List",
+        _ => McFolderListLoadSub(), priority: ThreadPriority.AboveNormal);
 
     private static void McFolderListLoadSub()
     {
@@ -263,7 +266,7 @@ public static class ModMinecraft
                     continue;
                 if (!folder.Contains(">") || !folder.EndsWithF(@"\"))
                 {
-                    ModMain.Hint("无效的 Minecraft 文件夹：" + folder, ModMain.HintType.Critical);
+                    ModMain.Hint(Lang.Text("Select.Folder.Invalid", folder), ModMain.HintType.Critical);
                     continue;
                 }
 
@@ -272,13 +275,13 @@ public static class ModMinecraft
                 try
                 {
                     ModBase.CheckPermissionWithException(path);
-                    cacheMcFolderList.Add(new McFolder { Name = name, Location = path, Type = McFolder.Types.Custom });
+                    cacheMcFolderList.Add(new McFolder { Name = name, Location = path, type = McFolder.Types.Custom });
                 }
                 catch (Exception ex)
                 {
                     ModMain.MyMsgBox(
-                        "失效的 Minecraft 文件夹：" + "\r\n" + path + "\r\n" + "\r\n" +
-                        ex.Message, "Minecraft 文件夹失效", IsWarn: true);
+                        Lang.Text("Select.Folder.Invalid", path) + "\r\n" + "\r\n" +
+                        ex.Message, Lang.Text("Select.Folder.InvalidTitle"), isWarn: true);
                     ModBase.Log(ex, $"无法访问 Minecraft 文件夹 {path}");
                 }
             }
@@ -292,14 +295,14 @@ public static class ModMinecraft
             // 扫描当前文件夹
             try
             {
-                if (Directory.Exists(ModBase.ExePath + @"versions\"))
+                if (Directory.Exists(ModBase.exePath + @"versions\"))
                     originalMcFolderList.Add(new McFolder
-                        { Name = "当前文件夹", Location = ModBase.ExePath, Type = McFolder.Types.Original });
-                foreach (var folder in new DirectoryInfo(ModBase.ExePath).GetDirectories())
+                        { Name = Lang.Text("Select.Folder.CurrentFolder"), Location = ModBase.exePath, type = McFolder.Types.Original });
+                foreach (var folder in new DirectoryInfo(ModBase.exePath).GetDirectories())
                     if (Directory.Exists(Path.Combine(folder.FullName, "versions")) || folder.Name == ".minecraft")
                     {
                         var newCurrentFolder = new McFolder
-                            { Name = folder.Name, Location = folder.FullName + @"\", Type = McFolder.Types.Original };
+                            { Name = folder.Name, Location = folder.FullName + @"\", type = McFolder.Types.Original };
                         originalMcFolderList.Add(newCurrentFolder);
                         currentMcFolderList.Add(newCurrentFolder);
                     }
@@ -310,12 +313,12 @@ public static class ModMinecraft
             }
 
             // 扫描官启文件夹
-            var MojangPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft") + @"\";
-            if ((!currentMcFolderList.Any() || (MojangPath ?? "") != (currentMcFolderList[0].Location ?? "")) &&
-                Directory.Exists(Path.Combine(MojangPath, "versions"))) // 当前文件夹不是官启文件夹
+            var mojangPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft") + @"\";
+            if ((!currentMcFolderList.Any() || (mojangPath ?? "") != (currentMcFolderList[0].Location ?? "")) &&
+                Directory.Exists(Path.Combine(mojangPath, "versions"))) // 当前文件夹不是官启文件夹
                 // 具有权限且存在 versions 文件夹
                 originalMcFolderList.Add(new McFolder
-                    { Name = "官方启动器文件夹", Location = MojangPath, Type = McFolder.Types.Original });
+                    { Name = Lang.Text("Select.Folder.OfficialLauncherFolder"), Location = mojangPath, type = McFolder.Types.Original });
 
             ModBase.Log(cacheMcFolderList.Count + " 个自定义文件夹，" + originalMcFolderList.Count + " 个原始文件夹");
 
@@ -326,9 +329,9 @@ public static class ModMinecraft
                     if ((cacheFolder.Location ?? "") == (newOriginalFolder.Location ?? ""))
                     {
                         if ((cacheFolder.Name ?? "") != (newOriginalFolder.Name ?? ""))
-                            cacheFolder.Type = McFolder.Types.RenamedOriginal;
+                            cacheFolder.type = McFolder.Types.RenamedOriginal;
                         else
-                            cacheFolder.Type = McFolder.Types.Original;
+                            cacheFolder.type = McFolder.Types.Original;
                         unAdded = true;
                     }
 
@@ -353,54 +356,55 @@ public static class ModMinecraft
             // 若没有可用文件夹，则创建 .minecraft
             if (!cacheMcFolderList.Any())
             {
-                Directory.CreateDirectory(ModBase.ExePath + @".minecraft\versions\");
+                Directory.CreateDirectory(ModBase.exePath + @".minecraft\versions\");
                 cacheMcFolderList.Add(new McFolder
-                    { Name = "当前文件夹", Location = ModBase.ExePath + @".minecraft\", Type = McFolder.Types.Original });
+                    { Name = Lang.Text("Select.Folder.CurrentFolder"), Location = ModBase.exePath + @".minecraft\", type = McFolder.Types.Original });
             }
 
             foreach (var Folder in cacheMcFolderList) McFolderLauncherProfilesJsonCreate(Folder.Location);
-            if (Conversions.ToBoolean(Config.Debug.AddRandomDelay))
+            if (Config.Debug.AddRandomDelay)
                 Thread.Sleep(RandomUtils.NextInt(200, 2000));
 
             // 回设
-            McFolderList = cacheMcFolderList;
+            mcFolderList = cacheMcFolderList;
         }
 
         catch (Exception ex)
         {
-            ModBase.Log(ex, "加载 Minecraft 文件夹列表失败", ModBase.LogLevel.Feedback);
+            ModBase.Log(ex, Lang.Text("Select.Folder.Error.Load"), ModBase.LogLevel.Feedback);
         }
     }
 
     /// <summary>
     ///     为 Minecraft 文件夹创建 launcher_profiles.json 文件。
     /// </summary>
-    public static void McFolderLauncherProfilesJsonCreate(string Folder)
+    public static void McFolderLauncherProfilesJsonCreate(string folder)
     {
         try
         {
-            if (File.Exists(Path.Combine(Folder, "launcher_profiles.json")))
+            if (File.Exists(Path.Combine(folder, "launcher_profiles.json")))
                 return;
-            var ResultJson = @"{
+            var now = DateTime.Now;
+            var resultJson = @"{
     ""profiles"":  {
         ""PCL"": {
             ""icon"": ""Grass"",
             ""name"": ""PCL"",
             ""lastVersionId"": ""latest-release"",
             ""type"": ""latest-release"",
-            ""lastUsed"": """ + DateTime.Now.ToString("yyyy'-'MM'-'dd") + "T" + DateTime.Now.ToString("HH':'mm':'ss") +
-                             @".0000Z""
+            ""lastUsed"": """ + now.ToString("yyyy'-'MM'-'dd", CultureInfo.InvariantCulture) + "T" +
+                             now.ToString("HH':'mm':'ss", CultureInfo.InvariantCulture) + @".0000Z""
         }
     },
     ""selectedProfile"": ""PCL"",
     ""clientToken"": ""23323323323323323323323323323333""
 }";
-            ModBase.WriteFile(Path.Combine(Folder, "launcher_profiles.json"), ResultJson, Encoding: Encoding.GetEncoding("GB18030"));
-            ModBase.Log("[Minecraft] 已创建 launcher_profiles.json：" + Folder);
+            ModBase.WriteFile(Path.Combine(folder, "launcher_profiles.json"), resultJson, encoding: Encoding.GetEncoding("GB18030"));
+            ModBase.Log("[Minecraft] 已创建 launcher_profiles.json：" + folder);
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, "创建 launcher_profiles.json 失败（" + Folder + "）", ModBase.LogLevel.Feedback);
+            ModBase.Log(ex, "创建 launcher_profiles.json 失败（" + folder + "）", ModBase.LogLevel.Feedback);
         }
     }
 
@@ -408,50 +412,42 @@ public static class ModMinecraft
 
     #region 实例处理
 
-    public const int McInstanceCacheVersion = 30;
+    public const int mcInstanceCacheVersion = 30;
 
-    private static McInstance _mcInstanceSelected;
     private static object _McInstanceSelected_mcInstanceSelectedLast = 0; // 为 0 以保证与 Nothing 不相同，使得 UI 显示可以正常初始化
 
     /// <summary>
     ///     当前的 Minecraft 版本。
     /// </summary>
-    public static McInstance McInstanceSelected
+    public static Instance McInstanceSelected
     {
-        get => _mcInstanceSelected;
+        get => field;
         set
         {
             if (ReferenceEquals(_McInstanceSelected_mcInstanceSelectedLast, value))
                 return;
-            _mcInstanceSelected = value; // 由于有可能是 Nothing，导致无法初始化，才得这样弄一圈
+            field = value; // 由于有可能是 Nothing，导致无法初始化，才得这样弄一圈
             _McInstanceSelected_mcInstanceSelectedLast = value;
             if (value is null)
                 return;
             // 重置缓存的 Mod 文件夹
-            PageDownloadCompDetail.CachedFolder.Clear();
+            PageDownloadCompDetail.cachedFolder.Clear();
         }
     }
 
     private static bool _JsonVersion_jsonVersionInited;
 
-    public class McInstance
+    public class Instance
     {
-        private McInstanceInfo _info;
-        private string _inheritInstanceName;
-        private JObject _jsonObject;
-        private string _jsonText;
-        private JObject _jsonVersion;
-        private string _name;
-
         /// <summary>
         ///     显示的描述文本。
         /// </summary>
-        public string Desc = "该实例未被加载，请向作者反馈此问题";
+        public string Desc = Lang.Text("Select.Instance.Description.NotLoaded");
 
         /// <summary>
         ///     强制实例分类，0 为未启用，1 为隐藏，2 及以上为其他普通分类。
         /// </summary>
-        public McInstanceCardType DisplayType = McInstanceCardType.Auto;
+        public McInstanceCardType displayType = McInstanceCardType.Auto;
 
         public bool IsLoaded;
 
@@ -468,18 +464,18 @@ public static class ModMinecraft
         /// <summary>
         ///     实例的发布时间。
         /// </summary>
-        public DateTime ReleaseTime = new(1970, 1, 1, 15, 0, 0);
+        public DateTime releaseTime = new(1970, 1, 1, 15, 0, 0);
 
         /// <summary>
         ///     该实例的列表检查原始结果，不受自定义影响。
         /// </summary>
-        public McInstanceState State = McInstanceState.Error;
+        public McInstanceState state = McInstanceState.Error;
 
         /// <summary></summary>
         /// <param name="name">实例名，或实例文件夹的完整路径（不规定是否以 \ 结尾）。</param>
-        public McInstance(string name)
+        public Instance(string name)
         {
-            PathInstance = (name.Contains(":") ? name : Path.Combine(McFolderSelected, "versions", name)) + (name.EndsWithF(@"\") ? "" : @"\");
+            PathInstance = (name.Contains(":") ? name : Path.Combine(mcFolderSelected, "versions", name)) + (name.EndsWithF(@"\") ? "" : @"\");
         }
 
         /// <summary>
@@ -510,27 +506,27 @@ public static class ModMinecraft
                         }
 
                         // 若实例文件夹下包含 mods 或 saves 文件夹，则自动开启版本隔离
-                        var ModFolder = new DirectoryInfo(PathInstance + @"mods\");
-                        var SaveFolder = new DirectoryInfo(PathInstance + @"saves\");
-                        if ((ModFolder.Exists && ModFolder.EnumerateFiles().Any()) ||
-                            (SaveFolder.Exists && SaveFolder.EnumerateDirectories().Any()))
+                        var modFolder = new DirectoryInfo(PathInstance + @"mods\");
+                        var saveFolder = new DirectoryInfo(PathInstance + @"saves\");
+                        if ((modFolder.Exists && modFolder.EnumerateFiles().Any()) ||
+                            (saveFolder.Exists && saveFolder.EnumerateDirectories().Any()))
                         {
                             ModBase.Log($"[Minecraft] 版本隔离初始化（{Name}）：实例文件夹下存在 mods 或 saves 文件夹，自动开启");
                             return true;
                         }
 
                         // 根据全局的默认设置决定是否隔离
-                        var IsRelease = State != McInstanceState.Fool && State != McInstanceState.Old &&
-                                        State != McInstanceState.Snapshot;
+                        var isRelease = state != McInstanceState.Fool && state != McInstanceState.Old &&
+                                        state != McInstanceState.Snapshot;
                         ModBase.Log(
-                            $"[Minecraft] 版本隔离初始化（{Name}）：从全局默认设置中（{Config.Launch.IndieSolutionV2}）判断，State {ModBase.GetStringFromEnum(State)}，IsRelease {IsRelease}，Modable {Modable}");
+                            $"[Minecraft] 版本隔离初始化（{Name}）：从全局默认设置中（{Config.Launch.IndieSolutionV2}）判断，State {ModBase.GetStringFromEnum(state)}，IsRelease {isRelease}，Modable {Modable}");
                         
                         return Config.Launch.IndieSolutionV2 switch
                         {
                             0 => false, // 关闭
                             1 => Info.HasLabyMod || Modable, // 仅隔离可安装 Mod 的实例
-                            2 => !IsRelease, // 仅隔离非正式版
-                            3 => Info.HasLabyMod || Modable || !IsRelease, // 隔离非正式版与可安装 Mod 的实例
+                            2 => !isRelease, // 仅隔离非正式版
+                            3 => Info.HasLabyMod || Modable || !isRelease, // 隔离非正式版与可安装 Mod 的实例
                             _ => true // 隔离所有实例
                         };
                     }
@@ -538,7 +534,7 @@ public static class ModMinecraft
                     Config.Instance.IndieV2[PathInstance] = ShouldBeIndie();
                 }
 
-                return Config.Instance.IndieV2[PathInstance] ? PathInstance : McFolderSelected;
+                return Config.Instance.IndieV2[PathInstance] ? PathInstance : mcFolderSelected;
             }
         }
 
@@ -549,9 +545,9 @@ public static class ModMinecraft
         {
             get
             {
-                if (_name is null && !string.IsNullOrEmpty(PathInstance))
-                    _name = ModBase.GetFolderNameFromPath(PathInstance);
-                return _name;
+                if (field is null && !string.IsNullOrEmpty(PathInstance))
+                    field = ModBase.GetFolderNameFromPath(PathInstance);
+                return field;
             }
         }
 
@@ -565,7 +561,7 @@ public static class ModMinecraft
                 if (!IsLoaded)
                     Load();
                 return Info.HasFabric || Info.HasLegacyFabric || Info.HasQuilt || Info.HasForge || Info.HasLiteLoader ||
-                       Info.HasNeoForge || Info.HasCleanroom || DisplayType == McInstanceCardType.API; // #223
+                       Info.HasNeoForge || Info.HasCleanroom || displayType == McInstanceCardType.API; // #223
             }
         }
 
@@ -576,9 +572,9 @@ public static class ModMinecraft
         {
             get
             {
-                if (_info is not null)
-                    return _info;
-                _info = new McInstanceInfo();
+                if (field is not null)
+                    return field;
+                field = new McInstanceInfo();
 
                 #region 获取游戏版本
 
@@ -588,69 +584,69 @@ public static class ModMinecraft
                     try
                     {
                         if (JsonObject["releaseTime"] is null)
-                            ReleaseTime = new DateTime(1970, 1, 1, 15, 0, 0); // 未知版本也可能显示为 1970 年
+                            releaseTime = new DateTime(1970, 1, 1, 15, 0, 0); // 未知版本也可能显示为 1970 年
                         else
-                            ReleaseTime = JsonObject["releaseTime"].ToObject<DateTime>();
-                        if (ReleaseTime.Year > 2000 && ReleaseTime.Year < 2013)
+                            releaseTime = JsonObject["releaseTime"].ToObject<DateTime>();
+                        if (releaseTime.Year > 2000 && releaseTime.Year < 2013)
                         {
-                            _info.VanillaName = "Old";
+                            field.VanillaName = "Old";
                             goto VersionSearchFinish;
                         }
                     }
                     catch
                     {
-                        ReleaseTime = new DateTime(1970, 1, 1, 15, 0, 0);
+                        releaseTime = new DateTime(1970, 1, 1, 15, 0, 0);
                     }
 
                     // 实验性快照
                     if ((string)(JsonObject["type"] ?? "") == "pending")
                     {
-                        _info.VanillaName = "pending";
+                        field.VanillaName = "pending";
                         goto VersionSearchFinish;
                     }
 
                     // 从 PCL 下载的版本信息中获取版本号
                     if (JsonObject["clientVersion"] is not null)
                     {
-                        _info.VanillaName = (string)JsonObject["clientVersion"];
+                        field.VanillaName = (string)JsonObject["clientVersion"];
                         goto VersionSearchFinish;
                     }
 
                     // 从 HMCL 下载的版本信息中获取版本号
                     if (JsonObject["patches"] is not null)
-                        foreach (JObject patch in JsonObject["patches"])
+                        foreach (var patchNode in JsonObject["patches"].AsArray()) { var patch = patchNode.AsObject();
                             if ((patch["id"] ?? "").ToString() == "game" && patch["version"] is not null)
                             {
-                                _info.VanillaName = patch["version"].ToString();
+                                field.VanillaName = patch["version"].ToString();
                                 goto VersionSearchFinish;
-                            }
+                            } }
 
                     // 从 Forge / NeoForge / LabyMod Arguments 中获取版本号
                     if (JsonObject["arguments"] is not null)
                     {
                         if (JsonObject["arguments"]["game"] is not null)
                         {
-                            var Mark = false;
-                            foreach (var Argument in JsonObject["arguments"]["game"])
+                            var mark = false;
+                            foreach (var Argument in JsonObject["arguments"]["game"].AsArray())
                             {
-                                if (Mark)
+                                if (mark)
                                 {
-                                    _info.VanillaName = Argument.ToString();
+                                    field.VanillaName = Argument.ToString();
                                     goto VersionSearchFinish;
                                 }
 
                                 if (Argument.ToString() == "--fml.mcVersion")
-                                    Mark = true;
+                                    mark = true;
                             }
                         }
 
                         if (JsonObject["arguments"]["jvm"] is not null)
-                            foreach (var Argument in JsonObject["arguments"]["game"])
+                            foreach (var Argument in JsonObject["arguments"]["jvm"].AsArray())
                             {
                                 var regexArgument = Argument.ToString().RegexSeek(RegexPatterns.LabyModVersion);
                                 if (regexArgument is not null)
                                 {
-                                    _info.VanillaName = regexArgument;
+                                    field.VanillaName = regexArgument;
                                     goto VersionSearchFinish;
                                 }
                             }
@@ -659,9 +655,9 @@ public static class ModMinecraft
                     // 从继承实例中获取版本号
                     if (!string.IsNullOrEmpty(InheritInstanceName))
                     {
-                        _info.VanillaName = (JsonObject["jar"] ?? "").ToString(); // LiteLoader 优先使用 Jar
-                        if (string.IsNullOrEmpty(_info.VanillaName))
-                            _info.VanillaName = InheritInstanceName;
+                        field.VanillaName = (JsonObject["jar"] ?? "").ToString(); // LiteLoader 优先使用 Jar
+                        if (string.IsNullOrEmpty(field.VanillaName))
+                            field.VanillaName = InheritInstanceName;
                         goto VersionSearchFinish;
                     }
 
@@ -670,7 +666,7 @@ public static class ModMinecraft
                         .RegexSeek(RegexPatterns.MinecraftDownloadUrlVersion);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
@@ -679,7 +675,7 @@ public static class ModMinecraft
                     regex = librariesString.RegexSeek(RegexPatterns.ForgeLibVersion);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
@@ -687,7 +683,7 @@ public static class ModMinecraft
                     regex = librariesString.RegexSeek(RegexPatterns.OptiFineLibVersion);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
@@ -695,14 +691,14 @@ public static class ModMinecraft
                     regex = librariesString.RegexSeek(RegexPatterns.FabricLikeLibVersion);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
                     // 从 jar 项中获取版本号
                     if (JsonObject["jar"] is not null)
                     {
-                        _info.VanillaName = JsonObject["jar"].ToString();
+                        field.VanillaName = JsonObject["jar"].ToString();
                         goto VersionSearchFinish;
                     }
 
@@ -712,7 +708,7 @@ public static class ModMinecraft
                         var jsonVerName = JsonVersion["name"].ToString();
                         if (jsonVerName.Length < 32) // 因为 wiki 说这玩意儿可能是个 hash，虽然我没发现
                         {
-                            _info.VanillaName = jsonVerName;
+                            field.VanillaName = jsonVerName;
                             ModBase.Log("[Minecraft] 从版本 jar 中的 version.json 获取到版本号：" + jsonVerName);
                             goto VersionSearchFinish;
                         }
@@ -723,70 +719,75 @@ public static class ModMinecraft
                         RegexOptions.IgnoreCase);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
                     // 非准确的版本判断警告
                     ModBase.Log("[Minecraft] 无法完全确认 MC 版本号的版本：" + Name);
-                    _info.Reliable = false;
+                    field.Reliable = false;
                     // 从文件夹名中获取
                     regex = Name.RegexSeek(RegexPatterns.MinecraftJsonVersion, RegexOptions.IgnoreCase);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
                     // 从 JSON 出现的版本号中获取
-                    var JsonRaw = (JObject)JsonObject.DeepClone();
-                    JsonRaw.Remove("libraries");
-                    var JsonRawText = JsonRaw.ToString();
-                    regex = JsonRawText.RegexSeek(RegexPatterns.MinecraftJsonVersion, RegexOptions.IgnoreCase);
+                    var jsonRaw = (JsonObject)JsonObject.DeepClone();
+                    jsonRaw.Remove("libraries");
+                    var jsonRawText = jsonRaw.ToString();
+                    regex = jsonRawText.RegexSeek(RegexPatterns.MinecraftJsonVersion, RegexOptions.IgnoreCase);
                     if (regex is not null)
                     {
-                        _info.VanillaName = regex;
+                        field.VanillaName = regex;
                         goto VersionSearchFinish;
                     }
 
                     // 无法获取
-                    _info.VanillaName = "Unknown";
-                    Desc = "PCL 无法识别该版本的 MC 版本号";
+                    field.VanillaName = "Unknown";
+                    Desc = Lang.Text("Select.Instance.Description.UnknownMcVersion");
                 }
                 catch (Exception ex)
                 {
                     ModBase.Log(ex, "识别 Minecraft 版本时出错");
-                    _info.VanillaName = "Unknown";
-                    Desc = "无法识别：" + ex.Message;
+                    field.VanillaName = "Unknown";
+                    Desc = Lang.Text("Minecraft.Error.Unrecognizable", ex.Message);
                 }
 
                 #endregion
 
                 VersionSearchFinish: ;
 
-                _info.VanillaName = _info.VanillaName.Replace("_unobfuscated", "").Replace(" Unobfuscated", "");
-                // 获取版本号
-                if (_info.VanillaName.StartsWithF("1."))
+                if (field.VanillaName.StartsWithF("20.") || field.VanillaName.StartsWithF("21."))
                 {
-                    var segments = _info.VanillaName.Split(" _-.".ToCharArray());
-                    _info.Vanilla = new Version((int)Math.Round(ModBase.Val(segments.Count() >= 2 ? segments[1] : "0")),
+                    field.VanillaName = "1." + field.VanillaName;
+                }
+                
+                field.VanillaName = field.VanillaName.Replace("_unobfuscated", "").Replace(" Unobfuscated", "");
+                // 获取版本号
+                if (field.VanillaName.StartsWithF("1."))
+                {
+                    var segments = field.VanillaName.Split(" _-.".ToCharArray());
+                    field.vanilla = new Version((int)Math.Round(ModBase.Val(segments.Count() >= 2 ? segments[1] : "0")),
                         0, (int)Math.Round(ModBase.Val(segments.Count() >= 3 ? segments[2] : "0")));
                 }
-                else if (_info.VanillaName.RegexCheck(@"^[2-9][0-9]\."))
+                else if (field.VanillaName.RegexCheck(@"^[2-9][0-9]\."))
                 {
-                    var segments = _info.VanillaName.Split(" _-.".ToCharArray());
-                    _info.Vanilla = new Version((int)Math.Round(ModBase.Val(segments[0])),
+                    var segments = field.VanillaName.Split(" _-.".ToCharArray());
+                    field.vanilla = new Version((int)Math.Round(ModBase.Val(segments[0])),
                         (int)Math.Round(ModBase.Val(segments.Count() >= 2 ? segments[1] : "0")),
                         (int)Math.Round(ModBase.Val(segments.Count() >= 3 ? segments[2] : "0")));
                 }
                 else
                 {
-                    _info.Vanilla = new Version(9999, 0, 0);
+                    field.vanilla = new Version(9999, 0, 0);
                 }
 
-                return _info;
+                return field;
             }
-            set { _info = value; }
+            set { field = value; }
         }
 
         /// <summary>
@@ -797,94 +798,96 @@ public static class ModMinecraft
             get
             {
                 // 快速检查 JSON 是否以 { 开头、} 结尾；忽略空白字符
-                bool FastJsonCheck(string Json)
+                bool FastJsonCheck(string json)
                 {
-                    var TrimedJson = Json.Trim();
-                    return TrimedJson.StartsWithF("{") && TrimedJson.EndsWithF("}");
+                    var trimedJson = json.Trim();
+                    return trimedJson.StartsWithF("{") && trimedJson.EndsWithF("}");
                 }
 
                 ;
-                if (_jsonText is null)
+                if (field is null)
                 {
-                    var JsonPath = PathInstance + Name + ".json";
-                    if (!File.Exists(JsonPath))
+                    var jsonPath = PathInstance + Name + ".json";
+                    if (!File.Exists(jsonPath))
                     {
                         // 如果文件夹下只有一个 JSON 文件，则将其作为实例 JSON
-                        var JsonFiles = Directory.GetFiles(PathInstance, "*.json");
-                        if (JsonFiles.Count() == 1)
+                        var jsonFiles = Directory.GetFiles(PathInstance, "*.json");
+                        if (jsonFiles.Count() == 1)
                         {
-                            JsonPath = JsonFiles[0];
-                            ModBase.Log("[Minecraft] 未找到同名实例 JSON，自动换用 " + JsonPath, ModBase.LogLevel.Debug);
+                            jsonPath = jsonFiles[0];
+                            ModBase.Log("[Minecraft] 未找到同名实例 JSON，自动换用 " + jsonPath, ModBase.LogLevel.Debug);
                         }
                         else
                         {
-                            throw new Exception($"未找到实例 JSON 文件：{PathInstance}{Name}.json");
+                            throw new Exception(Lang.Text("Minecraft.Error.InstanceJsonNotFound",
+                                $"{PathInstance}{Name}.json"));
                         }
                     }
 
-                    _jsonText = ModBase.ReadFile(JsonPath);
+                    field = ModBase.ReadFile(jsonPath);
                     // 如果 ReadFile 失败会返回空字符串；这可能是由于文件被临时占用，故延时后重试
-                    if (!FastJsonCheck(_jsonText))
+                    if (!FastJsonCheck(field))
                     {
                         if (ModBase.RunInUi())
                         {
-                            ModBase.Log("[Minecraft] 实例 JSON 文件为空或有误，由于代码在主线程运行，将不再进行重试", ModBase.LogLevel.Debug);
-                            ModBase.GetJson(_jsonText); // 触发异常
+                            ModBase.Log($"[Minecraft] 实例 JSON 文件为空或有误，将进行短暂重试（{jsonPath}）", ModBase.LogLevel.Debug);
+                            Thread.Sleep(200);
+                            field = ModBase.ReadFile(jsonPath);
                         }
                         else
                         {
-                            ModBase.Log($"[Minecraft] 实例 JSON 文件为空或有误，将在 2s 后重试读取（{JsonPath}）", ModBase.LogLevel.Debug);
+                            ModBase.Log($"[Minecraft] 实例 JSON 文件为空或有误，将在 2s 后重试读取（{jsonPath}）", ModBase.LogLevel.Debug);
                             Thread.Sleep(2000);
-                            _jsonText = ModBase.ReadFile(JsonPath);
-                            if (!FastJsonCheck(_jsonText))
-                                ModBase.GetJson(_jsonText);
-                        } // 触发异常
+                            field = ModBase.ReadFile(jsonPath);
+                        }
+                        if (!FastJsonCheck(field))
+                            ModBase.GetJson(field);
                     }
                 }
 
-                return _jsonText;
+                return field;
             }
-            set => _jsonText = value;
+            set => field = value;
         }
 
         /// <summary>
         ///     该实例的 JSON 对象。
         ///     若 JSON 存在问题，在获取该属性时即会抛出异常。
         /// </summary>
-        public JObject JsonObject
+        public JsonObject JsonObject
         {
             get
             {
-                if (_jsonObject is null)
+                if (field is null)
                 {
-                    var Text = JsonText; // 触发 JsonText 的 Get 事件
+                    var text = JsonText; // 触发 JsonText 的 Get 事件
                     try
                     {
-                        _jsonObject = (JObject)ModBase.GetJson(Text);
+                        field = (JsonObject)ModBase.GetJson(text);
                         // 转换 HMCL 关键项
-                        if (_jsonObject.ContainsKey("patches") && !_jsonObject.ContainsKey("time"))
+                        if (field.ContainsKey("patches") && !field.ContainsKey("time"))
                         {
                             IsHmclFormatJson = true;
                             // 合并 JSON
                             // Dim HasOptiFine As Boolean = False, HasForge As Boolean = False
-                            JObject CurrentObject = null;
-                            var SubjsonList = new List<JObject>();
-                            foreach (JObject Subjson in _jsonObject["patches"])
-                                SubjsonList.Add(Subjson);
-                            SubjsonList.Sort((left, right) =>
+                            JsonObject currentObject = null;
+                            var subjsonList = new List<JsonObject>();
+                            foreach (var SubjsonNode in field["patches"].AsArray()) { var subjson = SubjsonNode.AsObject();
+                                subjsonList.Add(subjson); }
+                            subjsonList.Sort((left, right) =>
                                 ModBase.Val((left["priority"] ?? "0").ToString()) <
                                 ModBase.Val((right["priority"] ?? "0").ToString()));
-                            foreach (var Subjson in SubjsonList)
+                            foreach (var Subjson in subjsonList)
                             {
-                                var Id = (string)Subjson["id"];
-                                if (Id is not null)
+                                var id = (string)Subjson["id"];
+                                if (id is not null)
                                 {
                                     // 合并 JSON
-                                    ModBase.Log("[Minecraft] 合并 HMCL 分支项：" + Id);
-                                    if (CurrentObject is not null)
-                                        CurrentObject.Merge(Subjson);
+                                    ModBase.Log("[Minecraft] 合并 HMCL 分支项：" + id);
+                                    if (currentObject is not null)
+                                        currentObject.Merge(Subjson);
                                     else
-                                        CurrentObject = Subjson;
+                                        currentObject = Subjson;
                                 }
                                 else
                                 {
@@ -892,11 +895,11 @@ public static class ModMinecraft
                                 }
                             }
 
-                            _jsonObject = CurrentObject;
+                            field = currentObject;
                             // 修改附加项
-                            _jsonObject["id"] = Name;
-                            if (_jsonObject.ContainsKey("inheritsFrom"))
-                                _jsonObject.Remove("inheritsFrom");
+                            field["id"] = Name;
+                            if (field.ContainsKey("inheritsFrom"))
+                                field.Remove("inheritsFrom");
                         }
 
                         // 与继承实例合并
@@ -905,11 +908,10 @@ public static class ModMinecraft
                         {
                             try
                             {
-                                inheritInstanceName = _jsonObject["inheritsFrom"] is null
+                                inheritInstanceName = field["inheritsFrom"] is null
                                     ? ""
-                                    : _jsonObject["inheritsFrom"].ToString();
-                                if (Conversions.ToBoolean(
-                                        Operators.ConditionalCompareObjectEqual(inheritInstanceName, Name, false)))
+                                    : field["inheritsFrom"].ToString();
+                                if (Equals(inheritInstanceName, Name))
                                 {
                                     ModBase.Log("[Minecraft] 自引用的继承实例：" + Name, ModBase.LogLevel.Debug);
                                     inheritInstanceName = "";
@@ -918,20 +920,18 @@ public static class ModMinecraft
 
                                 Recheck: ;
 
-                                if (Conversions.ToBoolean(
-                                        Operators.ConditionalCompareObjectNotEqual(inheritInstanceName, "", false)))
+                                if (!Equals(inheritInstanceName, ""))
                                 {
-                                    var inheritInstance = new McInstance(Conversions.ToString(inheritInstanceName));
+                                    var inheritInstance = new Instance(inheritInstanceName?.ToString() ?? "");
                                     // 继续循环
-                                    if (Conversions.ToBoolean(
-                                            Operators.ConditionalCompareObjectEqual(inheritInstance.InheritInstanceName,
-                                                inheritInstanceName, false)))
-                                        throw new Exception(Conversions.ToString(
-                                            Operators.ConcatenateObject("版本依赖项出现嵌套：", inheritInstanceName)));
+                                    if (Equals(inheritInstance.InheritInstanceName,
+                                            inheritInstanceName))
+                                        throw new Exception(Lang.Text("Minecraft.Error.DependencyRecursion",
+                                            inheritInstanceName));
                                     inheritInstanceName = inheritInstance.InheritInstanceName;
                                     // 合并
-                                    inheritInstance.JsonObject.Merge(_jsonObject);
-                                    _jsonObject = inheritInstance.JsonObject;
+                                    inheritInstance.JsonObject.Merge(field);
+                                    field = inheritInstance.JsonObject;
                                     goto Recheck;
                                 }
                             }
@@ -943,13 +943,13 @@ public static class ModMinecraft
                     }
                     catch (Exception ex)
                     {
-                        throw new Exception("初始化实例 JSON 时失败（" + (Name ?? "null") + "）", ex);
+                        throw new Exception(Lang.Text("Minecraft.Error.InitInstanceJsonFailed", Name ?? "null"), ex);
                     }
                 }
 
-                return _jsonObject;
+                return field;
             }
-            set => _jsonObject = value;
+            set => field = value;
         }
 
         /// <summary>
@@ -967,7 +967,7 @@ public static class ModMinecraft
         ///     实例 JAR 中的 version.json 文件对象。
         ///     若没有则返回 Nothing。
         /// </summary>
-        public JObject JsonVersion
+        public JsonObject JsonVersion
         {
             get
             {
@@ -987,7 +987,7 @@ public static class ModMinecraft
                                 if (versionJson is not null)
                                     using (var versionJsonStream = new StreamReader(versionJson.Open()))
                                     {
-                                        _jsonVersion = (JObject)ModBase.GetJson(versionJsonStream.ReadToEnd());
+                                        field = (JsonObject)ModBase.GetJson(versionJsonStream.ReadToEnd());
                                     }
                             }
                         }
@@ -998,7 +998,7 @@ public static class ModMinecraft
                     } while (false);
                 }
 
-                return _jsonVersion;
+                return field;
             }
         }
 
@@ -1009,22 +1009,22 @@ public static class ModMinecraft
         {
             get
             {
-                if (_inheritInstanceName is null)
+                if (field is null)
                 {
-                    _inheritInstanceName = (JsonObject["inheritsFrom"] ?? "").ToString();
+                    field = (JsonObject["inheritsFrom"] ?? "").ToString();
                     // 由于过老的 LiteLoader 中没有 Inherits（例如 1.5.2），需要手动判断以获取真实继承实例
                     // 此外，由于这里的加载早于实例种类判断，所以需要手动判断是否为 LiteLoader
                     // 如果实例提供了不同的 JAR，代表所需的 JAR 可能已被更改，则跳过 Inherit 替换
                     if (JsonText.Contains("liteloader") && (Info.VanillaName ?? "") != (Name ?? "") &&
                         !JsonText.Contains("logging"))
                         if (((JsonObject["jar"] ?? Info.VanillaName).ToString() ?? "") == (Info.VanillaName ?? ""))
-                            _inheritInstanceName = Info.VanillaName;
+                            field = Info.VanillaName;
                     // HMCL 实例无 JSON
                     if (IsHmclFormatJson)
-                        _inheritInstanceName = "";
+                        field = "";
                 }
 
-                return _inheritInstanceName;
+                return field;
             }
         }
 
@@ -1036,8 +1036,8 @@ public static class ModMinecraft
             // 检查文件夹
             if (!Directory.Exists(PathInstance))
             {
-                State = McInstanceState.Error;
-                Desc = "未找到实例 " + Name;
+                state = McInstanceState.Error;
+                Desc = Lang.Text("Select.Instance.Description.NotFound", Name);
                 return false;
             }
 
@@ -1049,8 +1049,8 @@ public static class ModMinecraft
             }
             catch (Exception ex)
             {
-                State = McInstanceState.Error;
-                Desc = "PCL 没有对该文件夹的访问权限，请右键以管理员身份运行 PCL";
+                state = McInstanceState.Error;
+                Desc = Lang.Text("Select.Instance.Description.NoPermission");
                 ModBase.Log(ex, "没有访问实例文件夹的权限");
                 return false;
             }
@@ -1066,7 +1066,7 @@ public static class ModMinecraft
                 JsonText = "";
                 JsonObject = null;
                 Desc = ex.Message;
-                State = McInstanceState.Error;
+                state = McInstanceState.Error;
                 return false;
             }
 
@@ -1074,13 +1074,13 @@ public static class ModMinecraft
             try
             {
                 if (string.IsNullOrEmpty(Info.VanillaName))
-                    throw new Exception("无法获取版本号，结果为空");
+                    throw new Exception(Lang.Text("Minecraft.Error.VersionNumberEmpty"));
             }
             catch (Exception ex)
             {
                 ModBase.Log(ex, "版本号获取失败（" + Name + "）");
-                State = McInstanceState.Error;
-                Desc = "版本号获取失败：" + ex;
+                state = McInstanceState.Error;
+                Desc = Lang.Text("Minecraft.Error.VersionNumberFetchFailed", ex);
                 return false;
             }
 
@@ -1090,27 +1090,27 @@ public static class ModMinecraft
                 if (!string.IsNullOrEmpty(InheritInstanceName))
                     if (!File.Exists(Path.Combine(ModBase.GetPathFromFullPath(PathInstance), InheritInstanceName, InheritInstanceName + ".json")))
                     {
-                        State = McInstanceState.Error;
-                        Desc = "需要安装 " + InheritInstanceName + " 作为前置实例";
+                        state = McInstanceState.Error;
+                        Desc = Lang.Text("Select.Instance.Description.NeedInherit", InheritInstanceName);
                         return false;
                     }
             }
             catch (Exception ex)
             {
                 ModBase.Log(ex, "依赖实例检查出错（" + Name + "）");
-                State = McInstanceState.Error;
-                Desc = "未知错误：" + ex;
+                state = McInstanceState.Error;
+                Desc = Lang.Text("Select.Instance.Description.UnknownError") + ": " + ex;
                 return false;
             }
 
-            State = McInstanceState.Original;
+            state = McInstanceState.Original;
             return true;
         }
 
         /// <summary>
         ///     加载 Minecraft 实例的详细信息。不使用其缓存，且会更新缓存。
         /// </summary>
-        public McInstance Load()
+        public Instance Load()
         {
             try
             {
@@ -1124,89 +1124,95 @@ public static class ModMinecraft
                 {
                     case "Unknown":
                     {
-                        State = McInstanceState.Error;
+                        state = McInstanceState.Error;
                         break;
                     }
                     case "Old":
                     {
-                        State = McInstanceState.Old; // 根据 API 进行筛选
+                        state = McInstanceState.Old; // 根据 API 进行筛选
                         break;
                     }
 
                     default:
                     {
-                        var realJson = JsonObject != null ? JsonObject.ToString() : JsonText;
+                        var realJson = JsonObject is not null ? JsonObject.ToString() : JsonText;
                         // 愚人节与快照版本
                         if ((JsonObject["type"] ?? "").ToString() == "fool" ||
-                            !string.IsNullOrEmpty(GetMcFoolName(Info.VanillaName)))
-                            State = McInstanceState.Fool;
-                        else if (IsSnapshot()) State = McInstanceState.Snapshot;
+                            !string.IsNullOrEmpty(McVersionClassifier.GetMcFoolName(Info.VanillaName)))
+                            state = McInstanceState.Fool;
+                        else if (IsSnapshot()) state = McInstanceState.Snapshot;
                         // OptiFine
                         if (realJson.Contains("optifine"))
                         {
-                            State = McInstanceState.OptiFine;
+                            state = McInstanceState.OptiFine;
                             Info.HasOptiFine = true;
-                            Info.OptiFine = realJson.RegexSeek(RegexPatterns.OptiFineVersion) ?? "未知版本";
+                            Info.OptiFine = realJson.RegexSeek(RegexPatterns.OptiFineVersion) ??
+                                            Lang.Text("Minecraft.Version.Unknown");
                         }
 
                         // LiteLoader
                         if (realJson.Contains("liteloader"))
                         {
-                            State = McInstanceState.LiteLoader;
+                            state = McInstanceState.LiteLoader;
                             Info.HasLiteLoader = true;
                         }
 
                         // Fabric、Forge、Quilt、LabyMod、Legacy Fabric
                         if (realJson.Contains("labymod_data"))
                         {
-                            State = McInstanceState.LabyMod;
+                            state = McInstanceState.LabyMod;
                             Info.HasLabyMod = true;
                             Info.LabyMod = (string)JsonObject["labymod_data"]["version"];
                         }
                         else if (realJson.Contains("net.legacyfabric:intermediary"))
                         {
-                            State = McInstanceState.LegacyFabric;
+                            state = McInstanceState.LegacyFabric;
                             Info.HasLegacyFabric = true;
                             Info.LegacyFabric =
-                                (realJson.RegexSeek(RegexPatterns.LegacyFabricVersion) ?? "未知版本")
+                                (realJson.RegexSeek(RegexPatterns.LegacyFabricVersion) ??
+                                 Lang.Text("Minecraft.Version.Unknown"))
                                 .Replace("+build", "");
                         }
                         else if (realJson.Contains("net.fabricmc:fabric-loader"))
                         {
-                            State = McInstanceState.Fabric;
+                            state = McInstanceState.Fabric;
                             Info.HasFabric = true;
                             Info.Fabric =
-                                (realJson.RegexSeek(RegexPatterns.FabricVersion) ?? "未知版本").Replace("+build", "");
+                                (realJson.RegexSeek(RegexPatterns.FabricVersion) ??
+                                 Lang.Text("Minecraft.Version.Unknown")).Replace("+build", "");
                         }
                         else if (realJson.Contains("org.quiltmc:quilt-loader"))
                         {
-                            State = McInstanceState.Quilt;
+                            state = McInstanceState.Quilt;
                             Info.HasQuilt = true;
                             Info.Quilt =
-                                (realJson.RegexSeek(RegexPatterns.QuiltVersion) ?? "未知版本").Replace("+build", "");
+                                (realJson.RegexSeek(RegexPatterns.QuiltVersion) ??
+                                 Lang.Text("Minecraft.Version.Unknown")).Replace("+build", "");
                         }
                         else if (realJson.Contains("com.cleanroommc:cleanroom:"))
                         {
-                            State = McInstanceState.Cleanroom;
+                            state = McInstanceState.Cleanroom;
                             Info.HasCleanroom = true;
                             Info.Cleanroom =
-                                (realJson.RegexSeek(RegexPatterns.CleanroomVersion) ?? "未知版本").Replace("+build", "");
+                                (realJson.RegexSeek(RegexPatterns.CleanroomVersion) ??
+                                 Lang.Text("Minecraft.Version.Unknown")).Replace("+build", "");
                         }
                         else if (realJson.Contains("minecraftforge") && !realJson.Contains("net.neoforge"))
                         {
-                            State = McInstanceState.Forge;
+                            state = McInstanceState.Forge;
                             Info.HasForge = true;
-                            Info.Forge = realJson.RegexSeek(RegexPatterns.ForgeMainVersion);
-                            if (Info.Forge is null)
-                                Info.Forge = realJson.RegexSeek(RegexPatterns.ForgeLibVersion) ?? "未知版本";
+                            Info.Forge = realJson.RegexSeek(RegexPatterns.ForgeMainVersion) ??
+                                         realJson.RegexSeek(RegexPatterns.ForgeLibVersion) ??
+                                         Lang.Text("Minecraft.Version.Unknown");
                         }
                         else if (realJson.Contains("net.neoforge"))
                         {
                             // 1.20.1 JSON 范例："--fml.forgeVersion", "47.1.99"
                             // 1.20.2+ JSON 范例："--fml.neoForgeVersion", "20.6.119-beta"
-                            State = McInstanceState.NeoForge;
+                            state = McInstanceState.NeoForge;
                             Info.HasNeoForge = true;
-                            Info.NeoForge = realJson.RegexSeek(RegexPatterns.NeoForgeVersion) ?? "未知版本";
+                            Info.NeoForge = realJson.RegexSeek(RegexPatterns.NeoForgeVersion) ??
+                                            Lang.Text("Minecraft.Version.Unknown");
                         }
 
                         break;
@@ -1220,83 +1226,83 @@ public static class ModMinecraft
                 // 确定实例图标
                 Logo = States.Instance.LogoPath[PathInstance];
                 if (string.IsNullOrEmpty(Logo) || !States.Instance.IsLogoCustom[PathInstance])
-                    switch (State)
+                    switch (state)
                     {
                         case McInstanceState.Original:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Grass.png";
+                            Logo = ModBase.pathImage + "Blocks/Grass.png";
                             break;
                         }
                         case McInstanceState.Snapshot:
                         {
-                            Logo = ModBase.PathImage + "Blocks/CommandBlock.png";
+                            Logo = ModBase.pathImage + "Blocks/CommandBlock.png";
                             break;
                         }
                         case McInstanceState.Old:
                         {
-                            Logo = ModBase.PathImage + "Blocks/CobbleStone.png";
+                            Logo = ModBase.pathImage + "Blocks/CobbleStone.png";
                             break;
                         }
                         case McInstanceState.Forge:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Anvil.png";
+                            Logo = ModBase.pathImage + "Blocks/Anvil.png";
                             break;
                         }
                         case McInstanceState.NeoForge:
                         {
-                            Logo = ModBase.PathImage + "Blocks/NeoForge.png";
+                            Logo = ModBase.pathImage + "Blocks/NeoForge.png";
                             break;
                         }
                         case McInstanceState.Cleanroom:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Cleanroom.png";
+                            Logo = ModBase.pathImage + "Blocks/Cleanroom.png";
                             break;
                         }
                         case McInstanceState.Fabric:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Fabric.png";
+                            Logo = ModBase.pathImage + "Blocks/Fabric.png";
                             break;
                         }
                         case McInstanceState.LegacyFabric:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Fabric.png";
+                            Logo = ModBase.pathImage + "Blocks/Fabric.png";
                             break;
                         }
                         case McInstanceState.Quilt:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Quilt.png";
+                            Logo = ModBase.pathImage + "Blocks/Quilt.png";
                             break;
                         }
                         case McInstanceState.OptiFine:
                         {
-                            Logo = ModBase.PathImage + "Blocks/GrassPath.png";
+                            Logo = ModBase.pathImage + "Blocks/GrassPath.png";
                             break;
                         }
                         case McInstanceState.LiteLoader:
                         {
-                            Logo = ModBase.PathImage + "Blocks/Egg.png";
+                            Logo = ModBase.pathImage + "Blocks/Egg.png";
                             break;
                         }
                         case McInstanceState.Fool:
                         {
-                            Logo = ModBase.PathImage + "Blocks/GoldBlock.png";
+                            Logo = ModBase.pathImage + "Blocks/GoldBlock.png";
                             break;
                         }
                         case McInstanceState.LabyMod:
                         {
-                            Logo = ModBase.PathImage + "Blocks/LabyMod.png";
+                            Logo = ModBase.pathImage + "Blocks/LabyMod.png";
                             break;
                         }
 
                         default:
                         {
-                            Logo = ModBase.PathImage + "Blocks/RedstoneBlock.png";
+                            Logo = ModBase.pathImage + "Blocks/RedstoneBlock.png";
                             break;
                         }
                     }
 
                 // 确定实例描述
-                if (State == McInstanceState.Error)
+                if (state == McInstanceState.Error)
                 {
                     Desc = Desc;
                 }
@@ -1310,18 +1316,18 @@ public static class ModMinecraft
                 // 确定实例收藏状态
                 IsStar = States.Instance.Starred[PathInstance];
                 // 确定实例显示种类
-                DisplayType = (McInstanceCardType)Conversions.ToInteger(States.Instance.CardType[PathInstance]);
+                displayType = (McInstanceCardType)States.Instance.CardType[PathInstance];
                 // 写入缓存
                 if (Directory.Exists(PathInstance))
                 {
-                    States.Instance.State[PathInstance] = (int)State;
+                    States.Instance.State[PathInstance] = (int)state;
                     States.Instance.Info[PathInstance] = Desc;
                     States.Instance.LogoPath[PathInstance] = Logo;
                 }
 
-                if (State != McInstanceState.Error)
+                if (state != McInstanceState.Error)
                 {
-                    States.Instance.ReleaseTime[PathInstance] = ReleaseTime.ToString("yyyy'-'MM'-'dd HH':'mm");
+                    States.Instance.ReleaseTime[PathInstance] = releaseTime.ToString("yyyy'-'MM'-'dd HH':'mm", CultureInfo.InvariantCulture);
                     States.Instance.FabricVersion[PathInstance] = Info.Fabric;
                     States.Instance.LegacyFabricVersion[PathInstance] = Info.LegacyFabric;
                     States.Instance.QuiltVersion[PathInstance] = Info.Quilt;
@@ -1332,15 +1338,15 @@ public static class ModMinecraft
                     States.Instance.NeoForgeVersion[PathInstance] = Info.NeoForge;
                     States.Instance.CleanroomVersion[PathInstance] = Info.Cleanroom;
                     States.Instance.VanillaVersionName[PathInstance] = Info.VanillaName;
-                    States.Instance.VanillaVersion[PathInstance] = Info.Vanilla.ToString();
+                    States.Instance.VanillaVersion[PathInstance] = Info.vanilla.ToString();
                 }
             }
             catch (Exception ex)
             {
-                Desc = "未知错误：" + ex;
-                Logo = ModBase.PathImage + "Blocks/RedstoneBlock.png";
-                State = McInstanceState.Error;
-                ModBase.Log(ex, "加载实例失败（" + Name + "）", ModBase.LogLevel.Feedback);
+                Desc = Lang.Text("Select.Instance.Description.UnknownError") + ": " + ex;
+                Logo = ModBase.pathImage + "Blocks/RedstoneBlock.png";
+                state = McInstanceState.Error;
+                ModBase.Log(ex, Lang.Text("Select.Instance.Error.Load", Name), ModBase.LogLevel.Feedback);
             }
             finally
             {
@@ -1364,31 +1370,45 @@ public static class ModMinecraft
         public string GetDefaultDescription()
         {
             // Mod Loader 信息
-            var ModLoaderInfo = "";
+            var modLoaderInfo = "";
             if (this.Info.HasForge)
-                ModLoaderInfo += ", Forge" + (this.Info.Forge == "未知版本" ? "" : " " + this.Info.Forge);
+                modLoaderInfo += ", Forge" + (this.Info.Forge == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.Forge);
             if (this.Info.HasNeoForge)
-                ModLoaderInfo += ", NeoForge" + (this.Info.NeoForge == "未知版本" ? "" : " " + this.Info.NeoForge);
+                modLoaderInfo += ", NeoForge" + (this.Info.NeoForge == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.NeoForge);
             if (this.Info.HasCleanroom)
-                ModLoaderInfo += ", Cleanroom" + (this.Info.Cleanroom == "未知版本" ? "" : " " + this.Info.Cleanroom);
+                modLoaderInfo += ", Cleanroom" + (this.Info.Cleanroom == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.Cleanroom);
             if (this.Info.HasLabyMod)
-                ModLoaderInfo += ", LabyMod" + (this.Info.LabyMod == "未知版本" ? "" : " " + this.Info.LabyMod);
+                modLoaderInfo += ", LabyMod" + (this.Info.LabyMod == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.LabyMod);
             if (this.Info.HasFabric)
-                ModLoaderInfo += ", Fabric" + (this.Info.Fabric == "未知版本" ? "" : " " + this.Info.Fabric);
+                modLoaderInfo += ", Fabric" + (this.Info.Fabric == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.Fabric);
             if (this.Info.HasQuilt)
-                ModLoaderInfo += ", Quilt" + (this.Info.Quilt == "未知版本" ? "" : " " + this.Info.Quilt);
+                modLoaderInfo += ", Quilt" + (this.Info.Quilt == Lang.Text("Minecraft.Version.Unknown")
+                    ? ""
+                    : " " + this.Info.Quilt);
             if (this.Info.HasLegacyFabric)
-                ModLoaderInfo += ", Legacy Fabric" +
-                                 (this.Info.LegacyFabric == "未知版本" ? "" : " " + this.Info.LegacyFabric);
+                modLoaderInfo += ", Legacy Fabric" +
+                                 (this.Info.LegacyFabric == Lang.Text("Minecraft.Version.Unknown")
+                                     ? ""
+                                     : " " + this.Info.LegacyFabric);
             if (this.Info.HasOptiFine)
-                ModLoaderInfo += ", OptiFine" + (this.Info.OptiFine == "未知版本"
+                modLoaderInfo += ", OptiFine" + (this.Info.OptiFine == Lang.Text("Minecraft.Version.Unknown")
                     ? ""
                     : " " + this.Info.OptiFine.Replace("-", " ").Replace("_", " "));
             if (this.Info.HasLiteLoader)
-                ModLoaderInfo += ", LiteLoader";
+                modLoaderInfo += ", LiteLoader";
             // 基础信息
-            string Info;
-            switch (State)
+            string info;
+            switch (state)
             {
                 case McInstanceState.Snapshot:
                 case McInstanceState.Original:
@@ -1399,28 +1419,28 @@ public static class ModMinecraft
                 case McInstanceState.LiteLoader:
                 {
                     if (this.Info.VanillaName.ContainsF("pre", true))
-                        Info = "预发布版 " + this.Info.VanillaName;
+                        info = Lang.Text("Select.Instance.Description.PreRelease", this.Info.VanillaName);
                     else if (this.Info.VanillaName.ContainsF("rc", true))
-                        Info = "发布候选 " + this.Info.VanillaName;
+                        info = Lang.Text("Select.Instance.Description.ReleaseCandidate", this.Info.VanillaName);
                     else if (this.Info.VanillaName.Contains("experimental"))
-                        Info = "实验性快照" + this.Info.VanillaName;
+                        info = Lang.Text("Select.Instance.Description.ExperimentalSnapshot", this.Info.VanillaName);
                     else if (this.Info.VanillaName == "pending")
-                        Info = "实验性快照";
+                        info = Lang.Text("Select.Instance.Description.ExperimentalSnapshot.Pending");
                     else if (IsSnapshot())
-                        Info = this.Info.Reliable ? "快照版 " + this.Info.VanillaName.Replace("-snapshot", "") : "快照版";
+                        info = this.Info.Reliable ? Lang.Text("Select.Instance.Description.Snapshot", this.Info.VanillaName.Replace("-snapshot", "")) : Lang.Text("Select.Instance.Description.Snapshot.Unknown");
                     else
-                        Info = this.Info.Reliable ? "正式版 " + this.Info.VanillaName : "正式版";
+                        info = this.Info.Reliable ? Lang.Text("Select.Instance.Description.Release", this.Info.VanillaName) : Lang.Text("Select.Instance.Description.Release.Unknown");
 
                     break;
                 }
                 case McInstanceState.Old:
                 {
-                    Info = "远古版本";
+                    info = Lang.Text("Select.Instance.Description.Old");
                     break;
                 }
                 case McInstanceState.Fool:
                 {
-                    Info = "愚人节版本 " + this.Info.VanillaName;
+                    info = Lang.Text("Select.Instance.Description.AprilFools", this.Info.VanillaName);
                     break;
                 }
                 case McInstanceState.Error:
@@ -1430,21 +1450,21 @@ public static class ModMinecraft
 
                 default:
                 {
-                    return "发生了未知错误，请向作者反馈此问题";
+                    return Lang.Text("Select.Instance.Description.ReportUnknownError");
                 }
             }
 
-            return (Info + ModLoaderInfo).Replace("_", "-");
+            return (info + modLoaderInfo).Replace("_", "-");
         }
 
         // 运算符支持
         public override bool Equals(object obj)
         {
-            var instance = obj as McInstance;
+            var instance = obj as Instance;
             return instance is not null && (PathInstance ?? "") == (instance.PathInstance ?? "");
         }
 
-        public static bool operator ==(McInstance? a, McInstance? b)
+        public static bool operator ==(Instance? a, Instance? b)
         {
             if (a is null && b is null)
                 return true;
@@ -1453,7 +1473,7 @@ public static class ModMinecraft
             return (a.PathInstance ?? "") == (b.PathInstance ?? "");
         }
 
-        public static bool operator !=(McInstance a, McInstance b)
+        public static bool operator !=(Instance a, Instance b)
         {
             return !(a == b);
         }
@@ -1596,7 +1616,7 @@ public static class ModMinecraft
         ///     对老版本格式，例如 1.20.3，会被转换为 20.0.3。
         ///     若没有版本号，例如旧快照，则为 9999.0.0。
         /// </summary>
-        public Version Vanilla;
+        public Version vanilla;
 
         // 原版
 
@@ -1609,14 +1629,14 @@ public static class ModMinecraft
         /// <summary>
         ///     原版版本号是否有效。
         /// </summary>
-        public bool Valid => Vanilla.Major < 1000;
+        public bool Valid => vanilla.Major < 1000;
 
         /// <summary>
         ///     可供比较的原版 Drop 序数。
         ///     例如 26.3.2 为 263，1.21.5 为 210。
         ///     若没有版本号，例如旧快照，则直接指定为 209。
         /// </summary>
-        public int Drop => Valid ? Vanilla.Major * 10 + Vanilla.Minor : 209;
+        public int Drop => Valid ? vanilla.Major * 10 + vanilla.Minor : 209;
 
         /// <summary>
         ///     可供比较的 OptiFine 版本序数。
@@ -1625,21 +1645,22 @@ public static class ModMinecraft
         {
             get
             {
-                if (string.IsNullOrEmpty(OptiFine) || OptiFine == "未知版本")
+                if (string.IsNullOrEmpty(OptiFine) || OptiFine == Lang.Text("Minecraft.Version.Unknown"))
                     return 0;
                 // 字母编号，如 G2 中的 G（7）
-                var result = Strings.Asc(OptiFine.ToUpper().First()) - Strings.Asc('A') + 1;
+                var result = char.ToUpperInvariant(OptiFine.First()) - 'A' + 1;
                 // 末尾数字，如 C5 beta4 中的 5
                 result *= 100;
                 result = (int)Math.Round(result +
-                                         ModBase.Val(Strings.Right(OptiFine, OptiFine.Length - 1).RegexSeek("[0-9]+")));
+                                         ModBase.Val(OptiFine[1..].RegexSeek("[0-9]+")));
                 // 测试标记（正式版为 99，Pre[x] 为 50+x，Beta[x] 为 x）
                 result *= 100;
                 if (OptiFine.ContainsF("pre", true))
                     result += 50;
                 if (OptiFine.ContainsF("pre", true) || OptiFine.ContainsF("beta", true))
                 {
-                    if (ModBase.Val(Strings.Right(OptiFine, 1)) == 0d && Strings.Right(OptiFine, 1) != "0")
+                    var lastChar = OptiFine[^1..];
+                    if (ModBase.Val(lastChar) == 0d && lastChar != "0")
                         result += 1; // 为 pre 或 beta 结尾，视作 1
                     else
                         result =
@@ -1671,8 +1692,8 @@ public static class ModMinecraft
             {
                 if (!HasForgelike)
                     return 0;
-                if ((string.IsNullOrEmpty(Forge) || Forge == "未知版本") &&
-                    (string.IsNullOrEmpty(NeoForge) || NeoForge == "未知版本"))
+                if ((string.IsNullOrEmpty(Forge) || Forge == Lang.Text("Minecraft.Version.Unknown")) &&
+                    (string.IsNullOrEmpty(NeoForge) || NeoForge == Lang.Text("Minecraft.Version.Unknown")))
                     return 0;
                 var segments = (HasForge ? Forge : NeoForge).RegexSearch(@"\d+");
                 switch (segments.Count)
@@ -1714,29 +1735,33 @@ public static class ModMinecraft
         /// </summary>
         public override string ToString()
         {
-            string ToStringRet = default;
-            ToStringRet = "";
+            string toStringRet = default;
+            toStringRet = "";
             if (HasForge)
-                ToStringRet += ", Forge" + (Forge == "未知版本" ? "" : " " + Forge);
+                toStringRet += ", Forge" + (Forge == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + Forge);
             if (HasNeoForge)
-                ToStringRet += ", NeoForge" + (NeoForge == "未知版本" ? "" : " " + NeoForge);
+                toStringRet += ", NeoForge" +
+                               (NeoForge == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + NeoForge);
             if (HasCleanroom)
-                ToStringRet += ", Cleanroom" + (Cleanroom == "未知版本" ? "" : " " + Cleanroom);
+                toStringRet += ", Cleanroom" +
+                               (Cleanroom == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + Cleanroom);
             if (HasFabric)
-                ToStringRet += ", Fabric" + (Fabric == "未知版本" ? "" : " " + Fabric);
+                toStringRet += ", Fabric" + (Fabric == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + Fabric);
             if (HasLegacyFabric)
-                ToStringRet += ", LegacyFabric" + (LegacyFabric == "未知版本" ? "" : " " + LegacyFabric);
+                toStringRet += ", LegacyFabric" +
+                               (LegacyFabric == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + LegacyFabric);
             if (HasQuilt)
-                ToStringRet += ", Quilt" + (Quilt == "未知版本" ? "" : " " + Quilt);
+                toStringRet += ", Quilt" + (Quilt == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + Quilt);
             if (HasLabyMod)
-                ToStringRet += ", LabyMod" + (LabyMod == "未知版本" ? "" : " " + LabyMod);
+                toStringRet += ", LabyMod" + (LabyMod == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + LabyMod);
             if (HasOptiFine)
-                ToStringRet += ", OptiFine" + (OptiFine == "未知版本" ? "" : " " + OptiFine);
+                toStringRet += ", OptiFine" +
+                               (OptiFine == Lang.Text("Minecraft.Version.Unknown") ? "" : " " + OptiFine);
             if (HasLiteLoader)
-                ToStringRet += ", LiteLoader";
-            if (string.IsNullOrEmpty(ToStringRet)) return "原版 " + VanillaName;
+                toStringRet += ", LiteLoader";
+            if (string.IsNullOrEmpty(toStringRet)) return Lang.Text("Minecraft.Version.Vanilla") + " " + VanillaName;
 
-            return VanillaName + ToStringRet;
+            return VanillaName + toStringRet;
         }
 
         // Helpers
@@ -1791,45 +1816,10 @@ public static class ModMinecraft
     /// <summary>
     ///     根据版本名获取对应的愚人节版本描述。非愚人节版本会返回空字符串。
     /// </summary>
-    public static string GetMcFoolName(string name)
-    {
-        name = name.ToLower();
-        if (name.StartsWithF("2.0") || name.StartsWithF("2point0"))
-        {
-            var tag = "";
-            if (name.EndsWith("red"))
-                tag = "（红色版本）";
-            else if (name.EndsWith("blue"))
-                tag = "（蓝色版本）";
-            else if (name.EndsWith("purple")) tag = "（紫色版本）";
-            return "2013 | 这个秘密计划了两年的更新将游戏推向了一个新高度！" + tag;
-        }
-
-        if (name == "15w14a") return "2015 | 作为一款全年龄向的游戏，我们需要和平，需要爱与拥抱。";
-
-        if (name == "1.rv-pre1") return "2016 | 是时候将现代科技带入 Minecraft 了！";
-
-        if (name == "3d shareware v1.34") return "2019 | 我们从地下室的废墟里找到了这个开发于 1994 年的杰作！";
-
-        if (name.StartsWithF("20w14inf") || name == "20w14∞") return "2020 | 我们加入了 20 亿个新的维度，让无限的想象变成了现实！";
-
-        if (name == "22w13oneblockatatime") return "2022 | 一次一个方块更新！迎接全新的挖掘、合成与骑乘玩法吧！";
-
-        if (name == "23w13a_or_b") return "2023 | 研究表明：玩家喜欢作出选择——越多越好！";
-
-        if (name == "24w14potato") return "2024 | 毒马铃薯一直都被大家忽视和低估，于是我们超级加强了它！";
-
-        if (name == "25w14craftmine") return "2025 | 你可以合成任何东西——包括合成你的世界！";
-
-        if (name == "26w14a") return "2026 | 为什么需要物品栏？让方块们跟着你走吧！";
-
-        return "";
-    }
-
     /// <summary>
     ///     当前按卡片分类的所有版本列表。
     /// </summary>
-    public static Dictionary<McInstanceCardType, List<McInstance>> McInstanceList = new();
+    public static Dictionary<McInstanceCardType, List<Instance>> mcInstanceList = new();
 
     #endregion
 
@@ -1838,7 +1828,7 @@ public static class ModMinecraft
     /// <summary>
     ///     是否要求本次加载强制刷新实例列表。
     /// </summary>
-    public static bool McInstanceListForceRefresh;
+    public static bool mcInstanceListForceRefresh;
 
     /// <summary>
     ///     是否为本次打开 PCL 后第一次加载实例列表。
@@ -1849,16 +1839,16 @@ public static class ModMinecraft
     /// <summary>
     ///     加载 Minecraft 文件夹的实例列表。
     /// </summary>
-    public static ModLoader.LoaderTask<string, int> McInstanceListLoader =
-        new("Minecraft Instance List", InitMcInstanceList) { ReloadTimeout = 1 };
+    public static ModLoader.LoaderTask<string, int> mcInstanceListLoader =
+        new("Minecraft Instance List", InitMcInstanceList) { reloadTimeout = 1 };
 
     private static void InitMcInstanceList(ModLoader.LoaderTask<string, int> loader)
     {
-        var path = loader.Input;
+        var path = loader.input;
         try
         {
             // 初始化
-            McInstanceList = new Dictionary<McInstanceCardType, List<McInstance>>();
+            mcInstanceList = new Dictionary<McInstanceCardType, List<Instance>>();
             var versionsPath = Path.Combine(path, "versions");
             var folderList = new List<string>();
 
@@ -1871,7 +1861,7 @@ public static class ModMinecraft
                 }
                 catch (Exception ex)
                 {
-                    throw new Exception($"无法读取实例文件夹，可能是由于没有权限（{versionsPath}）", ex);
+                    throw new Exception(Lang.Text("Minecraft.Error.CannotReadInstanceFolder", versionsPath), ex);
                 }
 
             // 如果没有可用实例，清空缓存并跳过后续处理
@@ -1885,19 +1875,19 @@ public static class ModMinecraft
             }
 
             // 根据文件夹名列表生成辨识码
-            var folderListHash = ModBase.GetHash(McInstanceCacheVersion + "#" + string.Join("#", folderList));
+            var folderListHash = ModBase.GetHash(mcInstanceCacheVersion + "#" + string.Join("#", folderList));
             var folderListCheck = (int)(folderListHash % (int.MaxValue - 1));
 
             // 尝试使用缓存
-            var useCache = !McInstanceListForceRefresh &&
+            var useCache = !mcInstanceListForceRefresh &&
                            ModBase.Val(ModBase.ReadIni(Path.Combine(path, "PCL.ini"), "InstanceCache")) ==
                            folderListCheck;
 
             if (useCache)
             {
                 var cachedResult = InitMcInstanceListWithCache(path);
-                if (cachedResult != null)
-                    McInstanceList = cachedResult;
+                if (cachedResult is not null)
+                    mcInstanceList = cachedResult;
                 else
                     useCache = false; // 缓存无效，需要重载
             }
@@ -1905,10 +1895,10 @@ public static class ModMinecraft
             // 如果不能使用缓存，重新加载
             if (!useCache)
             {
-                McInstanceListForceRefresh = false;
+                mcInstanceListForceRefresh = false;
                 ModBase.Log("[Minecraft] 文件夹列表变更或缓存无效，重载所有实例");
                 ModBase.WriteIni(Path.Combine(path, "PCL.ini"), "InstanceCache", folderListCheck.ToString());
-                McInstanceList = InitMcInstanceListWithoutCache(path);
+                mcInstanceList = InitMcInstanceListWithoutCache(path);
             }
 
             _isFirstMcInstanceListLoad = false;
@@ -1919,9 +1909,9 @@ public static class ModMinecraft
             // 尝试读取已储存的选择
             var savedSelection = ModBase.ReadIni(Path.Combine(path, "PCL.ini"), "Version");
             if (!string.IsNullOrEmpty(savedSelection))
-                foreach (var card in McInstanceList)
+                foreach (var card in mcInstanceList)
                 foreach (var instance in card.Value)
-                    if ((instance.Name ?? "") == savedSelection && instance.State != McInstanceState.Error)
+                    if ((instance.Name ?? "") == savedSelection && instance.state != McInstanceState.Error)
                     {
                         McInstanceSelected = instance;
                         States.Game.SelectedInstance = McInstanceSelected.Name;
@@ -1930,11 +1920,11 @@ public static class ModMinecraft
                     }
 
             // 自动选择第一项
-            var firstInstance = McInstanceList
+            var firstInstance = mcInstanceList
                 .SelectMany(kv => kv.Value)
-                .FirstOrDefault(i => i.State != McInstanceState.Error);
+                .FirstOrDefault(i => i.state != McInstanceState.Error);
 
-            if (firstInstance != null)
+            if (firstInstance is not null)
             {
                 McInstanceSelected = firstInstance;
                 States.Game.SelectedInstance = McInstanceSelected.Name;
@@ -1958,25 +1948,25 @@ public static class ModMinecraft
         catch (Exception ex)
         {
             ModBase.WriteIni(Path.Combine(path, "PCL.ini"), "InstanceCache", ""); // 要求下次重新加载
-            ModBase.Log(ex, "加载 .minecraft 实例列表失败", ModBase.LogLevel.Feedback);
+            ModBase.Log(ex, Lang.Text("Select.Instance.Error.ListLoad"), ModBase.LogLevel.Feedback);
         }
     }
 
     // 获取实例列表
-    private static Dictionary<McInstanceCardType, List<McInstance>> InitMcInstanceListWithCache(string path)
+    private static Dictionary<McInstanceCardType, List<Instance>> InitMcInstanceListWithCache(string path)
     {
-        var results = new Dictionary<McInstanceCardType, List<McInstance>>();
+        var results = new Dictionary<McInstanceCardType, List<Instance>>();
         try
         {
-            var cardCount = Conversions.ToInteger(ModBase.ReadIni(path + "PCL.ini", "CardCount", (-1).ToString()));
+            var cardCount = int.Parse(ModBase.ReadIni(path + "PCL.ini", "CardCount", (-1).ToString()));
             if (cardCount == -1)
                 return null;
             for (int i = 0, loopTo = cardCount - 1; i <= loopTo; i++)
             {
                 var cardType =
-                    (McInstanceCardType)Conversions.ToInteger(ModBase.ReadIni(path + "PCL.ini", "CardKey" + (i + 1),
-                        ":"));
-                var instanceList = new List<McInstance>();
+                    (McInstanceCardType)int.Parse(ModBase.ReadIni(path + "PCL.ini", "CardKey" + (i + 1),
+                        "0"));
+                var instanceList = new List<Instance>();
 
                 // 循环读取实例
                 foreach (var folder in ModBase.ReadIni(path + "PCL.ini", "CardValue" + (i + 1), ":").Split(":"))
@@ -2001,7 +1991,7 @@ public static class ModMinecraft
                     try
                     {
                         // 读取单个实例
-                        var instance = new McInstance(versionFolder);
+                        var instance = new Instance(versionFolder);
                         instanceList.Add(instance);
                         var instanceCfg = States.Instance;
                         instance.Desc = instanceCfg.CustomInfo[instance.PathInstance];
@@ -2011,14 +2001,14 @@ public static class ModMinecraft
                         if (!instanceCfg.LogoPathConfig.IsDefault(instance.PathInstance))
                             instance.Logo = instanceCfg.LogoPath[instance.PathInstance];
                         if (!instanceCfg.ReleaseTimeConfig.IsDefault(instance.PathInstance))
-                            instance.ReleaseTime = DateTime.Parse(instanceCfg.ReleaseTime[instance.PathInstance]);
+                            instance.releaseTime = DateTime.Parse(instanceCfg.ReleaseTime[instance.PathInstance]);
                         if (!instanceCfg.StateConfig.IsDefault(instance.PathInstance))
-                            instance.State =
-                                (McInstanceState)Conversions.ToInteger(instanceCfg.State[instance.PathInstance]);
+                            instance.state =
+                                (McInstanceState)(int)instanceCfg.State[instance.PathInstance];
                         instance.IsStar = instanceCfg.Starred[instance.PathInstance];
-                        instance.DisplayType =
-                            (McInstanceCardType)Conversions.ToInteger(instanceCfg.CardType[instance.PathInstance]);
-                        if (instance.State != McInstanceState.Error &&
+                        instance.displayType =
+                            (McInstanceCardType)(int)instanceCfg.CardType[instance.PathInstance];
+                        if (instance.state != McInstanceState.Error &&
                             !instanceCfg.VanillaVersionNameConfig.IsDefault(instance.PathInstance) &&
                             !instanceCfg.VanillaVersionConfig
                                 .IsDefault(instance.PathInstance)) // 旧版本可能没有这一项，导致 Instance 不加载（#643）
@@ -2035,7 +2025,7 @@ public static class ModMinecraft
                                 OptiFine = instanceCfg.OptiFineVersion[instance.PathInstance],
                                 HasLiteLoader = instanceCfg.HasLiteLoader[instance.PathInstance],
                                 VanillaName = instanceCfg.VanillaVersionName[instance.PathInstance],
-                                Vanilla = new Version(instanceCfg.VanillaVersion[instance.PathInstance])
+                                vanilla = new Version(instanceCfg.VanillaVersion[instance.PathInstance])
                             };
                             instanceInfo.HasFabric = instanceInfo.Fabric.Any();
                             instanceInfo.HasLegacyFabric = instanceInfo.LegacyFabric.Any();
@@ -2048,16 +2038,16 @@ public static class ModMinecraft
                         }
 
                         // 重新检查错误实例
-                        if (instance.State == McInstanceState.Error)
+                        if (instance.state == McInstanceState.Error)
                         {
                             // 重新获取实例错误信息
-                            var OldDesc = instance.Desc;
-                            instance.State = McInstanceState.Original;
+                            var oldDesc = instance.Desc;
+                            instance.state = McInstanceState.Original;
                             instance.Check();
                             // 校验错误原因是否改变
-                            var CustomInfo = States.Instance.CustomInfo[instance.PathInstance];
-                            if (instance.State == McInstanceState.Original || (string.IsNullOrEmpty(CustomInfo) &&
-                                                                               !((OldDesc ?? "") ==
+                            var customInfo = States.Instance.CustomInfo[instance.PathInstance];
+                            if (instance.state == McInstanceState.Original || (string.IsNullOrEmpty(customInfo) &&
+                                                                               !((oldDesc ?? "") ==
                                                                                    (instance.Desc ?? ""))))
                             {
                                 ModBase.Log("[Minecraft] 实例 " + instance.Name + " 的错误状态已变更，新的状态为：" + instance.Desc);
@@ -2093,9 +2083,9 @@ public static class ModMinecraft
         }
     }
 
-    private static Dictionary<McInstanceCardType, List<McInstance>> InitMcInstanceListWithoutCache(string path)
+    private static Dictionary<McInstanceCardType, List<Instance>> InitMcInstanceListWithoutCache(string path)
     {
-        var instanceList = new List<McInstance>();
+        var instanceList = new List<Instance>();
 
         #region 循环加载每个实例的信息
 
@@ -2126,7 +2116,7 @@ public static class ModMinecraft
                     }
                     catch (Exception ex)
                     {
-                        ModBase.Log(ex, "清理残留的忽略项目失败（" + instanceFolder + "）", ModBase.LogLevel.Hint);
+                        ModBase.Log(ex, Lang.Text("Select.Folder.Error.Cleanup", instanceFolder), ModBase.LogLevel.Hint);
                     }
                 }
                 else
@@ -2136,29 +2126,29 @@ public static class ModMinecraft
                 }
             }
 
-            var instance = new McInstance(instanceFolder);
+            var instance = new Instance(instanceFolder);
             instanceList.Add(instance);
             instance.Load();
         }
 
         #endregion
 
-        var results = new Dictionary<McInstanceCardType, List<McInstance>>();
+        var results = new Dictionary<McInstanceCardType, List<Instance>>();
 
         #region 将实例分类到各个卡片
 
         try
         {
             // 未经过自定义的实例列表
-            var instanceListOriginal = new Dictionary<McInstanceCardType, List<McInstance>>();
+            var instanceListOriginal = new Dictionary<McInstanceCardType, List<Instance>>();
 
             // 单独列出收藏的实例
-            var staredInstances = new List<McInstance>();
+            var staredInstances = new List<Instance>();
             foreach (var instance in instanceList.ToList())
             {
                 if (!instance.IsStar)
                     continue;
-                if (instance.DisplayType == McInstanceCardType.Hidden)
+                if (instance.displayType == McInstanceCardType.Hidden)
                     continue;
                 staredInstances.Add(instance);
                 instanceList.Remove(instance);
@@ -2183,15 +2173,15 @@ public static class ModMinecraft
                 }, McInstanceCardType.API);
 
             // 将老实例预先分类入不常用，只剩余原版、快照、OptiFine
-            var instanceUseful = new List<McInstance>();
-            var instanceRubbish = new List<McInstance>();
+            var instanceUseful = new List<Instance>();
+            var instanceRubbish = new List<Instance>();
             McInstanceFilter(ref instanceList, new[] { McInstanceState.Old }, ref instanceRubbish);
 
             // 确认最新实例，若为快照则加入常用列表
             var latestInstance = instanceList
-                .Where(v => v.State == McInstanceState.Original || v.State == McInstanceState.Snapshot)
-                .MaxOrDefault(v => v.ReleaseTime);
-            if (latestInstance is not null && latestInstance.State == McInstanceState.Snapshot)
+                .Where(v => v.state == McInstanceState.Original || v.state == McInstanceState.Snapshot)
+                .MaxOrDefault(v => v.releaseTime);
+            if (latestInstance is not null && latestInstance.state == McInstanceState.Snapshot)
             {
                 instanceUseful.Add(latestInstance);
                 instanceList.Remove(latestInstance);
@@ -2201,7 +2191,7 @@ public static class ModMinecraft
             McInstanceFilter(ref instanceList, new[] { McInstanceState.Snapshot }, ref instanceRubbish);
 
             // 获取每个 Drop 下最新的原版与 OptiFine
-            var newerInstance = new Dictionary<string, McInstance>();
+            var newerInstance = new Dictionary<string, Instance>();
             var existDrops = new List<int>();
             foreach (var instance in instanceList)
             {
@@ -2209,7 +2199,7 @@ public static class ModMinecraft
                     continue;
                 if (!existDrops.Contains(instance.Info.Drop))
                     existDrops.Add(instance.Info.Drop);
-                var key = instance.Info.Drop + "-" + (int)instance.State;
+                var key = instance.Info.Drop + "-" + (int)instance.state;
                 if (!newerInstance.ContainsKey(key))
                 {
                     newerInstance.Add(key, instance);
@@ -2221,7 +2211,7 @@ public static class ModMinecraft
                     if (instance.Info.OptiFineCode > newerInstance[key].Info.OptiFineCode)
                         newerInstance[key] = instance; // OptiFine 根据版本号判断
                 }
-                else if (instance.ReleaseTime > newerInstance[key].ReleaseTime)
+                else if (instance.releaseTime > newerInstance[key].releaseTime)
                 {
                     newerInstance[key] = instance; // 原版根据发布时间判断
                 }
@@ -2269,11 +2259,11 @@ public static class ModMinecraft
             foreach (var instancePair in instanceListOriginal)
             foreach (var instance in instancePair.Value)
             {
-                var realType = instance.DisplayType == 0 || instancePair.Key == McInstanceCardType.Star
+                var realType = instance.displayType == 0 || instancePair.Key == McInstanceCardType.Star
                     ? instancePair.Key
-                    : instance.DisplayType;
+                    : instance.displayType;
                 if (!results.ContainsKey(realType))
-                    results.Add(realType, new List<McInstance>());
+                    results.Add(realType, new List<Instance>());
                 results[realType].Add(instance);
             }
         }
@@ -2281,7 +2271,7 @@ public static class ModMinecraft
         catch (Exception ex)
         {
             results.Clear();
-            ModBase.Log(ex, "分类实例列表失败", ModBase.LogLevel.Feedback);
+            ModBase.Log(ex, Lang.Text("Select.Instance.Error.Classify"), ModBase.LogLevel.Feedback);
         }
 
         #endregion
@@ -2289,16 +2279,16 @@ public static class ModMinecraft
         #region 对卡片与实例进行排序
 
         // 卡片排序
-        var sortedInstanceList = new Dictionary<McInstanceCardType, List<McInstance>>();
+        var sortedInstanceList = new Dictionary<McInstanceCardType, List<Instance>>();
         foreach (var sortRule in new[]
                  {
                      McInstanceCardType.Star, McInstanceCardType.API, McInstanceCardType.OriginalLike,
                      McInstanceCardType.Rubbish, McInstanceCardType.Fool, McInstanceCardType.Error,
                      McInstanceCardType.Hidden
                  })
-            if (results.ContainsKey((McInstanceCardType)Conversions.ToInteger(sortRule)))
-                sortedInstanceList.Add((McInstanceCardType)Conversions.ToInteger(sortRule),
-                    results[(McInstanceCardType)Conversions.ToInteger(sortRule)]);
+            if (results.ContainsKey(sortRule))
+                sortedInstanceList.Add(sortRule,
+                    results[sortRule]);
         results = sortedInstanceList;
 
         // 版本排序
@@ -2311,7 +2301,7 @@ public static class ModMinecraft
             if (!results.ContainsKey(cardType))
                 continue;
 
-            int getComponentCode(McInstance instance)
+            int getComponentCode(Instance instance)
             {
                 if (instance.Info.ForgelikeCode > 0)
                     return instance.Info.ForgelikeCode;
@@ -2324,9 +2314,9 @@ public static class ModMinecraft
             results[cardType] = SortUtils.Sort(results[cardType], (left, right) =>
             {
                 // 发布时间
-                if ((left.ReleaseTime.Year >= 2000 || right.ReleaseTime.Year >= 2000) &&
-                    left.ReleaseTime != right.ReleaseTime)
-                    return left.ReleaseTime > right.ReleaseTime;
+                if ((left.releaseTime.Year >= 2000 || right.releaseTime.Year >= 2000) &&
+                    left.releaseTime != right.releaseTime)
+                    return left.releaseTime > right.releaseTime;
                 // 附加组件种类
                 if (left.Info.HasFabric != right.Info.HasFabric)
                     return left.Info.HasFabric;
@@ -2350,7 +2340,7 @@ public static class ModMinecraft
                 if (getComponentCode(left) != getComponentCode(right))
                     return getComponentCode(left) > getComponentCode(right);
                 // 名称
-                return Operators.CompareString(left.Name, right.Name, false) > 0;
+                return string.CompareOrdinal(left.Name, right.Name) > 0;
             });
         }
 
@@ -2363,10 +2353,10 @@ public static class ModMinecraft
         {
             ModBase.WriteIni(path + "PCL.ini", "CardKey" + (i + 1),
                 ((int)results.Keys.ElementAtOrDefault(i)).ToString());
-            var Value = "";
+            var value = "";
             foreach (var Instance in results.Values.ElementAtOrDefault(i))
-                Value += Instance.Name + ":";
-            ModBase.WriteIni(path + "PCL.ini", "CardValue" + (i + 1), Value);
+                value += Instance.Name + ":";
+            ModBase.WriteIni(path + "PCL.ini", "CardValue" + (i + 1), value);
         }
 
         #endregion
@@ -2380,11 +2370,11 @@ public static class ModMinecraft
     /// <param name="instanceList">用于筛选的列表。</param>
     /// <param name="formula">需要筛选出的实例类型。-2 代表隐藏的实例。</param>
     /// <param name="cardType">卡片的名称。</param>
-    private static void McInstanceFilter(ref List<McInstance> instanceList,
-        ref Dictionary<McInstanceCardType, List<McInstance>> target, McInstanceState[] formula,
+    private static void McInstanceFilter(ref List<Instance> instanceList,
+        ref Dictionary<McInstanceCardType, List<Instance>> target, McInstanceState[] formula,
         McInstanceCardType cardType)
     {
-        var keepList = instanceList.Where(v => formula.Contains(v.State)).ToList();
+        var keepList = instanceList.Where(v => formula.Contains(v.state)).ToList();
         // 加入实例列表，并从剩余中删除
         if (keepList.Any())
         {
@@ -2399,10 +2389,10 @@ public static class ModMinecraft
     /// <param name="instanceList">用于筛选的列表。</param>
     /// <param name="formula">需要筛选出的实例类型。-2 代表隐藏的实例。</param>
     /// <param name="keepList">传入需要增加入的列表。</param>
-    private static void McInstanceFilter(ref List<McInstance> instanceList, McInstanceState[] formula,
-        ref List<McInstance> keepList)
+    private static void McInstanceFilter(ref List<Instance> instanceList, McInstanceState[] formula,
+        ref List<Instance> keepList)
     {
-        keepList.AddRange(instanceList.Where(v => formula.Contains(v.State)));
+        keepList.AddRange(instanceList.Where(v => formula.Contains(v.state)));
         // 加入实例列表，并从剩余中删除
         if (keepList.Any()) instanceList = instanceList.Except(keepList).ToList();
     }
@@ -2435,44 +2425,44 @@ public static class ModMinecraft
     /// </summary>
     public static McSkinInfo McSkinSelect()
     {
-        var FileName = SystemDialogs.SelectFile("皮肤文件(*.png;*.jpg;*.webp)|*.png;*.jpg;*.webp", "选择皮肤文件");
+        var fileName = SystemDialogs.SelectFile(Lang.Text("Launch.Skin.FileDialog.Filter"), Lang.Text("Launch.Skin.FileDialog.Title"));
 
         // 验证有效性
-        if (string.IsNullOrEmpty(FileName))
+        if (string.IsNullOrEmpty(fileName))
             return new McSkinInfo { IsVaild = false };
         try
         {
-            var Image = new MyBitmap(FileName);
-            if (Image.Pic.Width != 64 || !(Image.Pic.Height == 32 || Image.Pic.Height == 64))
+            var image = new MyBitmap(fileName);
+            if (image.pic.Width != 64 || !(image.pic.Height == 32 || image.pic.Height == 64))
             {
-                ModMain.Hint("皮肤图片大小应为 64x32 像素或 64x64 像素！", ModMain.HintType.Critical);
+                ModMain.Hint(Lang.Text("Launch.Skin.InvalidSize"), ModMain.HintType.Critical);
                 return new McSkinInfo { IsVaild = false };
             }
 
-            var FileInfo = new FileInfo(FileName);
-            if (FileInfo.Length > 24 * 1024)
+            var fileInfo = new FileInfo(fileName);
+            if (fileInfo.Length > 24 * 1024)
             {
-                ModMain.Hint("皮肤文件大小需小于 24 KB，而所选文件大小为 " + Math.Round(FileInfo.Length / 1024d, 2) + " KB",
+                ModMain.Hint(Lang.Text("Launch.Skin.FileTooLarge", Lang.Number(fileInfo.Length / 1024d, "N2")),
                     ModMain.HintType.Critical);
                 return new McSkinInfo { IsVaild = false };
             }
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, "皮肤文件存在错误", ModBase.LogLevel.Hint);
+            ModBase.Log(ex, Lang.Text("Launch.Skin.File.Error"), ModBase.LogLevel.Hint);
             return new McSkinInfo { IsVaild = false };
         }
 
         // 获取皮肤种类
-        var IsSlim = ModMain.MyMsgBox("此皮肤为 Steve 模型（粗手臂）还是 Alex 模型（细手臂）？", "选择皮肤种类", "Steve 模型", "Alex 模型", "我不知道",
-            HighLight: false);
-        if (IsSlim == 3)
+        var isSlim = ModMain.MyMsgBox(Lang.Text("Launch.Skin.Model.SelectMessage"), Lang.Text("Launch.Skin.Model.SelectTitle"), Lang.Text("Launch.Skin.Model.Steve"), Lang.Text("Launch.Skin.Model.Alex"), Lang.Text("Common.Option.IDontKnow"),
+            highLight: false);
+        if (isSlim == 3)
         {
-            ModMain.Hint("请在皮肤下载页面确认皮肤种类后再使用此皮肤！");
+            ModMain.Hint(Lang.Text("Launch.Skin.Model.UnknownHint"));
             return new McSkinInfo { IsVaild = false };
         }
 
-        return new McSkinInfo { IsVaild = true, IsSlim = IsSlim == 2, LocalFile = FileName };
+        return new McSkinInfo { IsVaild = true, IsSlim = isSlim == 2, LocalFile = fileName };
     }
 
     /// <summary>
@@ -2481,13 +2471,13 @@ public static class ModMinecraft
     public static string McSkinGetAddress(string uuid, string type)
     {
         if (string.IsNullOrEmpty(uuid))
-            throw new Exception("Uuid 为空。");
+            throw new Exception(Lang.Text("Minecraft.Skin.Error.UuidEmpty"));
 
         if (uuid.StartsWith("00000"))
-            throw new Exception("离线 Uuid 无正版皮肤文件。");
+            throw new Exception(Lang.Text("Minecraft.Skin.Error.OfflineNoSkin"));
 
         // 尝试读取缓存
-        var cachePath = Path.Combine(ModBase.PathTemp, $"Cache\\Skin\\Index{type}.ini");
+        var cachePath = Path.Combine(ModBase.pathTemp, $"Cache\\Skin\\Index{type}.ini");
         var cacheSkinAddress = ModBase.ReadIni(cachePath, uuid);
         if (!string.IsNullOrEmpty(cacheSkinAddress))
             return cacheSkinAddress;
@@ -2497,44 +2487,44 @@ public static class ModMinecraft
         {
             "Mojang" => "https://sessionserver.mojang.com/session/minecraft/profile/",
             "Ms" => "https://sessionserver.mojang.com/session/minecraft/profile/",
-            "Auth" => ModProfile.SelectedProfile.Server.Replace("/authserver", "") +
+            "Auth" => ModProfile.selectedProfile.Server.Replace("/authserver", "") +
                       "/sessionserver/session/minecraft/profile/",
-            _ => throw new ArgumentException($"皮肤地址种类无效：{type ?? "null"}")
+            _ => throw new ArgumentException(Lang.Text("Minecraft.Skin.Error.InvalidSkinType", type ?? "null"))
         };
 
         var skinString = ModNet.NetGetCodeByRequestRetry(url + uuid);
         if (string.IsNullOrEmpty((string?)skinString))
-            throw new Exception("皮肤返回值为空，可能是未设置自定义皮肤的用户");
+            throw new Exception(Lang.Text("Minecraft.Skin.Error.SkinReturnEmpty"));
 
         // 解析皮肤 Property
         string skinValue = null;
         try
         {
-            var json = (JObject)ModBase.GetJson((string)skinString);
-            foreach (var property in json["properties"])
+            var json = (JsonObject)ModBase.GetJson((string)skinString);
+            foreach (var property in json["properties"].AsArray())
                 if (property["name"]?.ToString() == "textures")
                 {
                     skinValue = property["value"]?.ToString();
                     break;
                 }
 
-            if (skinValue == null)
-                throw new Exception("未从皮肤返回值中找到符合条件的 Property");
+            if (skinValue is null)
+                throw new Exception(Lang.Text("Minecraft.Skin.Error.PropertyNotFound"));
         }
         catch (Exception ex)
         {
             ModBase.Log(ex,
                 $"无法完成解析的皮肤返回值，可能是未设置自定义皮肤的用户：{skinString}",
                 ModBase.LogLevel.Developer);
-            throw new Exception("皮肤返回值中不包含皮肤数据项，可能是未设置自定义皮肤的用户", ex);
+            throw new Exception(Lang.Text("Minecraft.Skin.Error.NoSkinData"), ex);
         }
 
         // 解码 Base64 并解析 JSON
         var decoded = Encoding.UTF8.GetString(Convert.FromBase64String(skinValue));
-        var skinJson = (JObject)ModBase.GetJson(decoded.ToLowerInvariant());
+        var skinJson = (JsonObject)ModBase.GetJson(decoded.ToLowerInvariant());
 
-        if (skinJson["textures"]?["skin"]?["url"] == null)
-            throw new Exception("用户未设置自定义皮肤");
+        if (skinJson["textures"]?["skin"]?["url"] is null)
+            throw new Exception(Lang.Text("Minecraft.Skin.Error.NoCustomSkin"));
 
         var skinUrl = skinJson["textures"]["skin"]["url"].ToString();
         skinUrl = skinUrl.Contains("minecraft.net/") ? skinUrl.Replace("http://", "https://") : skinUrl;
@@ -2546,41 +2536,41 @@ public static class ModMinecraft
         return skinUrl;
     }
 
-    private static readonly object McSkinDownloadLock = new();
+    private static readonly object mcSkinDownloadLock = new();
 
     /// <summary>
     ///     从 Url 下载皮肤。返回本地文件路径，失败将抛出异常。
     /// </summary>
-    public static string McSkinDownload(string Address)
+    public static string McSkinDownload(string address)
     {
-        var SkinName = ModBase.GetFileNameFromPath(Address);
-        var FileAddress = ModBase.PathTemp + @"Cache\Skin\" + ModBase.GetHash(Address) + ".png";
-        lock (McSkinDownloadLock)
+        var skinName = ModBase.GetFileNameFromPath(address);
+        var fileAddress = ModBase.pathTemp + @"Cache\Skin\" + ModBase.GetHash(address) + ".png";
+        lock (mcSkinDownloadLock)
         {
-            if (!File.Exists(FileAddress))
+            if (!File.Exists(fileAddress))
             {
-                FileDownloader.Download(Address, FileAddress + ModNet.NetDownloadEnd).GetAwaiter().GetResult();
-                File.Delete(FileAddress);
-                FileSystem.Rename(FileAddress + ModNet.NetDownloadEnd, FileAddress);
-                ModBase.Log("[Minecraft] 皮肤下载成功：" + FileAddress);
+                FileDownloader.Download(address, fileAddress + ModNet.netDownloadEnd).GetAwaiter().GetResult();
+                File.Delete(fileAddress);
+                FileSystem.Rename(fileAddress + ModNet.netDownloadEnd, fileAddress);
+                ModBase.Log("[Minecraft] 皮肤下载成功：" + fileAddress);
             }
 
-            return FileAddress;
+            return fileAddress;
         }
     }
 
     /// <summary>
     ///     获取 Uuid 对应的皮肤，返回“Steve”或“Alex”。
     /// </summary>
-    public static string McSkinSex(string Uuid)
+    public static string McSkinSex(string uuid)
     {
-        if (!(Uuid.Length == 32))
+        if (uuid.Length != 32)
             return "Steve";
-        var a = int.Parse(Conversions.ToString(Uuid[7]), NumberStyles.AllowHexSpecifier);
-        var b = int.Parse(Conversions.ToString(Uuid[15]), NumberStyles.AllowHexSpecifier);
-        var c = int.Parse(Conversions.ToString(Uuid[23]), NumberStyles.AllowHexSpecifier);
-        var d = int.Parse(Conversions.ToString(Uuid[31]), NumberStyles.AllowHexSpecifier);
-        return Conversions.ToBoolean((a ^ b ^ c ^ d) % 2) ? "Alex" : "Steve";
+        var a = int.Parse(uuid[7].ToString(), NumberStyles.AllowHexSpecifier);
+        var b = int.Parse(uuid[15].ToString(), NumberStyles.AllowHexSpecifier);
+        var c = int.Parse(uuid[23].ToString(), NumberStyles.AllowHexSpecifier);
+        var d = int.Parse(uuid[31].ToString(), NumberStyles.AllowHexSpecifier);
+        return ((a ^ b ^ c ^ d) % 2) != 0 ? "Alex" : "Steve";
         // Math.floorMod(uuid.hashCode(), 18)
 
         // Public Function hashCode(ByVal str As String) As Integer
@@ -2627,12 +2617,12 @@ public static class ModMinecraft
         /// <summary>
         ///     文件的 SHA1。
         /// </summary>
-        public string SHA1;
+        public string Sha1;
 
         /// <summary>
         ///     文件大小。若无有效数据即为 0。
         /// </summary>
-        public long Size;
+        public long size;
 
         /// <summary>
         ///     由 JSON 提供的 URL，若没有则为 Nothing。
@@ -2654,149 +2644,149 @@ public static class ModMinecraft
             {
                 if (OriginalName is null)
                     return null;
-                var Splited = new List<string>(OriginalName.Split(":"));
-                Splited.RemoveAt(2); // Java 的此格式下版本号固定为第三段，第四段可能包含架构、分包等其他信息
-                return Splited.Join(":");
+                var splited = new List<string>(OriginalName.Split(":"));
+                splited.RemoveAt(2); // Java 的此格式下版本号固定为第三段，第四段可能包含架构、分包等其他信息
+                return splited.Join(":");
             }
         }
 
         public override string ToString()
         {
-            return (IsNatives ? "[Native] " : "") + ModBase.GetString(Size) + " | " + LocalPath;
+            return (IsNatives ? "[Native] " : "") + ModBase.GetString(size) + " | " + LocalPath;
         }
     }
 
     /// <summary>
     ///     检查是否符合 JSON 中的 Rules。
     /// </summary>
-    /// <param name="RuleToken">JSON 中的 "rules" 项目。</param>
-    public static bool McJsonRuleCheck(JToken RuleToken)
+    /// <param name="ruleToken">JSON 中的 "rules" 项目。</param>
+    public static bool McJsonRuleCheck(JsonNode ruleToken)
     {
-        if (RuleToken is null)
+        if (ruleToken is null)
             return true;
 
         // 初始化
-        var Required = false;
-        foreach (var Rule in RuleToken)
+        var required = false;
+        foreach (var Rule in ruleToken.AsArray())
         {
             // 单条条件验证
-            var IsRightRule = true; // 是否为正确的规则
+            var isRightRule = true; // 是否为正确的规则
             if (Rule["os"] is not null) // 操作系统
             {
                 if (Rule["os"]["name"] is not null) // 操作系统名称
                 {
-                    var OsName = Rule["os"]["name"].ToString();
-                    if (OsName == "unknown")
+                    var osName = Rule["os"]["name"].ToString();
+                    if (osName == "unknown")
                     {
                     }
-                    else if (OsName == "windows")
+                    else if (osName == "windows")
                     {
                         if (Rule["os"]["version"] is not null) // 操作系统版本
                         {
-                            var Cr = Rule["os"]["version"].ToString();
-                            IsRightRule = IsRightRule && OSVersion.RegexCheck(Cr);
+                            var cr = Rule["os"]["version"].ToString();
+                            isRightRule = isRightRule && osVersion.RegexCheck(cr);
                         }
                     }
                     else
                     {
-                        IsRightRule = false;
+                        isRightRule = false;
                     }
                 }
 
                 if (Rule["os"]["arch"] is not null) // 操作系统架构
-                    IsRightRule = IsRightRule && Rule["os"]["arch"].ToString() == "x86" == ModBase.Is32BitSystem;
+                    isRightRule = isRightRule && Rule["os"]["arch"].ToString() == "x86" == SystemInfo.Is32BitSystem;
             }
 
-            if (!(Rule["features"] == null)) // 标签
+            if (Rule["features"] is not null) // 标签
             {
-                IsRightRule = IsRightRule && Rule["features"]["is_demo_user"] == null; // 反选是否为 Demo 用户
-                if (((JObject)Rule["features"]).Children().OfType<JProperty>().Any(j => j.Name.Contains("quick_play")))
-                    IsRightRule = false; // 不开 Quick Play，让玩家自己加去
+                isRightRule = isRightRule && Rule["features"]["is_demo_user"] is null; // 反选是否为 Demo 用户
+                if (Rule["features"].AsObject().Any(prop => prop.Key.Contains("quick_play")))
+                    isRightRule = false; // 不开 Quick Play，让玩家自己加去
             }
 
             // 反选确认
             if (Rule["action"].ToString() == "allow")
             {
-                if (IsRightRule)
-                    Required = true; // allow
+                if (isRightRule)
+                    required = true; // allow
             }
-            else if (IsRightRule)
+            else if (isRightRule)
             {
-                Required = false; // disallow
+                required = false; // disallow
             }
         }
 
-        return Required;
+        return required;
     }
 
-    private static readonly string OSVersion = Environment.OSVersion.Version.ToString();
+    private static readonly string osVersion = Environment.OSVersion.Version.ToString();
 
     /// <summary>
     ///     递归获取 Minecraft 某一实例的完整支持库列表。
     /// </summary>
-    public static List<McLibToken> McLibListGet(McInstance Instance, bool IncludeInstanceJar)
+    public static List<McLibToken> McLibListGet(Instance instance, bool includeInstanceJar)
     {
         // 获取当前支持库列表
-        ModBase.Log("[Minecraft] 获取支持库列表：" + Instance.Name);
-        var result = McLibListGetWithJson(Instance.JsonObject, TargetInstance: Instance);
+        ModBase.Log("[Minecraft] 获取支持库列表：" + instance.Name);
+        var result = McLibListGetWithJson(instance.JsonObject, targetInstance: instance);
 
         // 需要添加原版 Jar
-        if (IncludeInstanceJar)
+        if (includeInstanceJar)
         {
-            McInstance RealInstance;
-            var RequiredJar = Instance.JsonObject["jar"]?.ToString();
-            if (Instance.IsHmclFormatJson || RequiredJar is null)
+            Instance realInstance;
+            var requiredJar = instance.JsonObject["jar"]?.ToString();
+            if (instance.IsHmclFormatJson || requiredJar is null)
             {
                 // HMCL 项直接使用自身的 Jar
                 // 根据 Inherit 获取最深层实例
-                var OriginalInstance = Instance;
+                var originalInstance = instance;
                 // 1.17+ 的 Forge 不寻找 Inherit
-                if (!((Instance.Info.HasForge || Instance.Info.HasNeoForge) && Instance.Info.Drop >= 170))
-                    while (!string.IsNullOrEmpty(OriginalInstance.InheritInstanceName))
+                if (!((instance.Info.HasForge || instance.Info.HasNeoForge) && instance.Info.Drop >= 170))
+                    while (!string.IsNullOrEmpty(originalInstance.InheritInstanceName))
                     {
-                        if ((OriginalInstance.InheritInstanceName ?? "") == (OriginalInstance.Name ?? ""))
+                        if ((originalInstance.InheritInstanceName ?? "") == (originalInstance.Name ?? ""))
                             break;
-                        OriginalInstance = new McInstance(Path.Combine(McFolderSelected, "versions", OriginalInstance.InheritInstanceName));
+                        originalInstance = new Instance(Path.Combine(mcFolderSelected, "versions", originalInstance.InheritInstanceName));
                     }
 
                 // 需要新建对象，否则后面的 Check 会导致 McInstanceCurrent 的 State 变回 Original
                 // 复现：启动一个 Snapshot 实例
-                RealInstance = new McInstance(OriginalInstance.PathInstance);
+                realInstance = new Instance(originalInstance.PathInstance);
             }
             else
             {
                 // Json 已提供 Jar 字段，使用该字段的信息
-                RealInstance = new McInstance(RequiredJar);
+                realInstance = new Instance(requiredJar);
             }
 
-            string ClientUrl;
-            string ClientSHA1;
+            string clientUrl;
+            string clientSHA1;
             // 判断需求的实例是否存在
             // 不能调用 RealVersion.Check()，可能会莫名其妙地触发 CheckPermission 正被另一进程使用，导致误判前置不存在
-            if (!File.Exists(RealInstance.PathInstance + RealInstance.Name + ".json"))
+            if (!File.Exists(realInstance.PathInstance + realInstance.Name + ".json"))
             {
-                RealInstance = Instance;
-                ModBase.Log("[Minecraft] 可能缺少前置实例 " + RealInstance.Name + "，找不到对应的 JSON 文件", ModBase.LogLevel.Debug);
+                realInstance = instance;
+                ModBase.Log("[Minecraft] 可能缺少前置实例 " + realInstance.Name + "，找不到对应的 JSON 文件", ModBase.LogLevel.Debug);
             }
 
             // 获取详细下载信息
-            if (RealInstance.JsonObject["downloads"] is not null &&
-                RealInstance.JsonObject["downloads"]["client"] is not null)
+            if (realInstance.JsonObject["downloads"] is not null &&
+                realInstance.JsonObject["downloads"]["client"] is not null)
             {
-                ClientUrl = (string)RealInstance.JsonObject["downloads"]["client"]["url"];
-                ClientSHA1 = (string)RealInstance.JsonObject["downloads"]["client"]["sha1"];
+                clientUrl = (string)realInstance.JsonObject["downloads"]["client"]["url"];
+                clientSHA1 = (string)realInstance.JsonObject["downloads"]["client"]["sha1"];
             }
             else
             {
-                ClientUrl = null;
-                ClientSHA1 = null;
+                clientUrl = null;
+                clientSHA1 = null;
             }
 
             // 把所需的原版 Jar 添加进去
             result.Add(new McLibToken
             {
-                LocalPath = RealInstance.PathInstance + RealInstance.Name + ".jar", Size = 0L, IsNatives = false,
-                Url = ClientUrl, SHA1 = ClientSHA1
+                LocalPath = realInstance.PathInstance + realInstance.Name + ".jar", size = 0L, IsNatives = false,
+                Url = clientUrl, Sha1 = clientSHA1
             });
         }
 
@@ -2806,173 +2796,174 @@ public static class ModMinecraft
     /// <summary>
     ///     获取 Minecraft 某一实例忽视继承的支持库列表，即结果中没有继承项。
     /// </summary>
-    public static List<McLibToken> McLibListGetWithJson(JObject JsonObject,
-        bool KeepSameNameDifferentVersionResult = false, string CustomMcFolder = null, McInstance TargetInstance = null)
+    public static List<McLibToken> McLibListGetWithJson(JsonObject jsonObject,
+        bool keepSameNameDifferentVersionResult = false, string customMcFolder = null, Instance targetInstance = null)
     {
-        CustomMcFolder = CustomMcFolder ?? McFolderSelected;
-        var BasicArray = new List<McLibToken>();
+        customMcFolder = customMcFolder ?? mcFolderSelected;
+        var basicArray = new List<McLibToken>();
 
         // 添加基础 Json 项
-        var AllLibs = (JArray)JsonObject["libraries"];
+        var allLibs = (JsonArray)jsonObject["libraries"];
 
         // 转换为 LibToken
-        foreach (JObject Library in AllLibs.Children())
+        foreach (var LibraryNode in allLibs)
         {
-            // 清理 null 项（BakaXL 会把没有的项序列化为 null，但会被 Newtonsoft 转换为 JValue，导致 Is Nothing = false；这导致了 #409）
-            for (var i = Library.Properties().Count() - 1; i >= 0; i -= 1)
-                if (Library.Properties().ElementAtOrDefault(i).Value.Type == JTokenType.Null)
-                    Library.Remove(Library.Properties().ElementAtOrDefault(i).Name);
+            var library = LibraryNode.AsObject();
+            // 清理 null 项（BakaXL 会把没有的项序列化为 null；这导致了 #409）
+            var keysToRemove = library.Where(p => p.Value?.GetValueKind() == JsonValueKind.Null).Select(p => p.Key).ToList();
+            foreach (var key in keysToRemove)
+                library.Remove(key);
 
             // 检查是否需要（Rules）
-            if (!McJsonRuleCheck(Library["rules"]))
+            if (!McJsonRuleCheck(library["rules"]))
                 continue;
 
             // 获取根节点下的 url
-            var RootUrl = (string)Library["url"];
-            if (RootUrl is not null)
-                RootUrl += McLibGet((string)Library["name"], false, true, CustomMcFolder).Replace(@"\", "/");
+            var rootUrl = (string)library["url"];
+            if (rootUrl is not null)
+                rootUrl += McLibGet((string)library["name"], false, true, customMcFolder).Replace(@"\", "/");
 
             // 是否为纯本地项
-            var Hint = (string)Library["hint"];
-            var IsLocal = Hint is not null ? Hint == "local" : false;
+            var hint = (string)library["hint"];
+            var isLocal = hint is not null ? hint == "local" : false;
 
             // 根据是否本地化处理（Natives）
-            if (Library["natives"] is null) // 没有 Natives
+            if (library["natives"] is null) // 没有 Natives
             {
-                string LocalPath;
-                if (IsLocal && TargetInstance is not null) // 纯本地项
-                    LocalPath = TargetInstance.PathInstance + @"libraries\" +
-                                Library["name"].ToString().AfterFirst(":").Replace(":", "-") + ".jar";
+                string localPath;
+                if (isLocal && targetInstance is not null) // 纯本地项
+                    localPath = targetInstance.PathInstance + @"libraries\" +
+                                library["name"].ToString().AfterFirst(":").Replace(":", "-") + ".jar";
                 else
-                    LocalPath = McLibGet((string)Library["name"], customMcFolder: CustomMcFolder);
+                    localPath = McLibGet((string)library["name"], customMcFolder: customMcFolder);
                 try
                 {
-                    if (Library["downloads"] is not null && Library["downloads"]["artifact"] is not null)
+                    if (library["downloads"] is not null && library["downloads"]["artifact"] is not null)
                     {
                         var init = new McLibToken();
-                        BasicArray.Add((init.OriginalName = (string)Library["name"],
-                            init.Url = (string)(RootUrl ?? Library["downloads"]["artifact"]["url"]),
-                            init.LocalPath = Library["downloads"]["artifact"]["path"] is null
-                                ? McLibGet((string)Library["name"], customMcFolder: CustomMcFolder)
-                                : Path.Combine(CustomMcFolder, "libraries", Library["downloads"]["artifact"]["path"].ToString()
+                        basicArray.Add((init.OriginalName = (string)library["name"],
+                            init.Url = (string)(rootUrl ?? library["downloads"]["artifact"]["url"]),
+                            init.LocalPath = library["downloads"]["artifact"]["path"] is null
+                                ? McLibGet((string)library["name"], customMcFolder: customMcFolder)
+                                : Path.Combine(customMcFolder, "libraries", library["downloads"]["artifact"]["path"].ToString()
                                     .Replace("/", @"\")),
-                            init.Size = (long)Math.Round(
-                                ModBase.Val(Library["downloads"]["artifact"]["size"].ToString())),
-                            init.IsNatives = false, init.SHA1 = Library["downloads"]["artifact"]["sha1"]?.ToString(),
-                            init.IsLocal = IsLocal, init).init);
+                            init.size = (long)Math.Round(
+                                ModBase.Val(library["downloads"]["artifact"]["size"].ToString())),
+                            init.IsNatives = false, init.Sha1 = library["downloads"]["artifact"]["sha1"]?.ToString(),
+                            init.IsLocal = isLocal, init).init);
                     }
                     else
                     {
-                        BasicArray.Add(new McLibToken
+                        basicArray.Add(new McLibToken
                         {
-                            OriginalName = (string)Library["name"], Url = RootUrl, LocalPath = LocalPath, Size = 0L,
-                            IsNatives = false, SHA1 = null, IsLocal = IsLocal
+                            OriginalName = (string)library["name"], Url = rootUrl, LocalPath = localPath, size = 0L,
+                            IsNatives = false, Sha1 = null, IsLocal = isLocal
                         });
                     }
                 }
                 catch (Exception ex)
                 {
-                    ModBase.Log(ex, "处理实际支持库列表失败（无 Natives，" + (Library["name"] ?? "Nothing") + "）");
-                    BasicArray.Add(new McLibToken
+                    ModBase.Log(ex, "处理实际支持库列表失败（无 Natives，" + (library["name"] ?? "Nothing") + "）");
+                    basicArray.Add(new McLibToken
                     {
-                        OriginalName = (string)Library["name"], Url = RootUrl, LocalPath = LocalPath, Size = 0L,
-                        IsNatives = false, SHA1 = null
+                        OriginalName = (string)library["name"], Url = rootUrl, LocalPath = localPath, size = 0L,
+                        IsNatives = false, Sha1 = null
                     });
                 }
             }
-            else if (Library["natives"]["windows"] is not null) // 有 Windows Natives
+            else if (library["natives"]["windows"] is not null) // 有 Windows Natives
             {
                 try
                 {
-                    if (Library["downloads"] is not null && Library["downloads"]["classifiers"] is not null &&
-                        Library["downloads"]["classifiers"]["natives-windows"] is not null)
-                        BasicArray.Add(new McLibToken
+                    if (library["downloads"] is not null && library["downloads"]["classifiers"] is not null &&
+                        library["downloads"]["classifiers"]["natives-windows"] is not null)
+                        basicArray.Add(new McLibToken
                         {
-                            OriginalName = (string)Library["name"],
-                            Url = (string)(RootUrl ?? Library["downloads"]["classifiers"]["natives-windows"]["url"]),
-                            LocalPath = Library["downloads"]["classifiers"]["natives-windows"]["path"] is null
-                                ? McLibGet((string)Library["name"], customMcFolder: CustomMcFolder)
-                                    .Replace(".jar", "-" + Library["natives"]["windows"] + ".jar")
+                            OriginalName = (string)library["name"],
+                            Url = (string)(rootUrl ?? library["downloads"]["classifiers"]["natives-windows"]["url"]),
+                            LocalPath = library["downloads"]["classifiers"]["natives-windows"]["path"] is null
+                                ? McLibGet((string)library["name"], customMcFolder: customMcFolder)
+                                    .Replace(".jar", "-" + library["natives"]["windows"] + ".jar")
                                     .Replace("${arch}", Environment.Is64BitOperatingSystem ? "64" : "32")
-                                : Path.Combine(CustomMcFolder, "libraries",
-                                  Library["downloads"]["classifiers"]["natives-windows"]["path"].ToString()
+                                : Path.Combine(customMcFolder, "libraries",
+                                  library["downloads"]["classifiers"]["natives-windows"]["path"].ToString()
                                       .Replace("/", @"\")),
-                            Size = (long)Math.Round(
-                                ModBase.Val(Library["downloads"]["classifiers"]["natives-windows"]["size"].ToString())),
+                            size = (long)Math.Round(
+                                ModBase.Val(library["downloads"]["classifiers"]["natives-windows"]["size"].ToString())),
                             IsNatives = true,
-                            SHA1 = Library["downloads"]["classifiers"]["natives-windows"]["sha1"].ToString(),
-                            IsLocal = IsLocal
+                            Sha1 = library["downloads"]["classifiers"]["natives-windows"]["sha1"].ToString(),
+                            IsLocal = isLocal
                         });
                     else
-                        BasicArray.Add(new McLibToken
+                        basicArray.Add(new McLibToken
                         {
-                            OriginalName = (string)Library["name"], Url = RootUrl,
-                            LocalPath = McLibGet((string)Library["name"], customMcFolder: CustomMcFolder)
-                                .Replace(".jar", "-" + Library["natives"]["windows"] + ".jar")
+                            OriginalName = (string)library["name"], Url = rootUrl,
+                            LocalPath = McLibGet((string)library["name"], customMcFolder: customMcFolder)
+                                .Replace(".jar", "-" + library["natives"]["windows"] + ".jar")
                                 .Replace("${arch}", Environment.Is64BitOperatingSystem ? "64" : "32"),
-                            Size = 0L, IsNatives = true, SHA1 = null, IsLocal = IsLocal
+                            size = 0L, IsNatives = true, Sha1 = null, IsLocal = isLocal
                         });
                 }
                 catch (Exception ex)
                 {
-                    ModBase.Log(ex, "处理实际支持库列表失败（有 Natives，" + (Library["name"] ?? "Nothing") + "）");
-                    BasicArray.Add(new McLibToken
+                    ModBase.Log(ex, "处理实际支持库列表失败（有 Natives，" + (library["name"] ?? "Nothing") + "）");
+                    basicArray.Add(new McLibToken
                     {
-                        OriginalName = (string)Library["name"], Url = RootUrl,
-                        LocalPath = McLibGet((string)Library["name"], customMcFolder: CustomMcFolder)
-                            .Replace(".jar", "-" + Library["natives"]["windows"] + ".jar")
+                        OriginalName = (string)library["name"], Url = rootUrl,
+                        LocalPath = McLibGet((string)library["name"], customMcFolder: customMcFolder)
+                            .Replace(".jar", "-" + library["natives"]["windows"] + ".jar")
                             .Replace("${arch}", Environment.Is64BitOperatingSystem ? "64" : "32"),
-                        Size = 0L, IsNatives = true, SHA1 = null, IsLocal = false
+                        size = 0L, IsNatives = true, Sha1 = null, IsLocal = false
                     });
                 }
             }
         }
 
         // 去重
-        var ResultArray = new Dictionary<string, McLibToken>();
+        var resultArray = new Dictionary<string, McLibToken>();
 
         // 测试例：
         // D:\Minecraft\test\libraries\net\neoforged\mergetool\2.0.0\mergetool-2.0.0-api.jar
         // D:\Minecraft\test\libraries\org\apache\commons\commons-collections4\4.2\commons-collections4-4.2.jar
         // D:\Minecraft\test\libraries\com\google\guava\guava\31.1-jre\guava-31.1-jre.jar
-        string GetVersion(McLibToken Token)
+        string GetVersion(McLibToken token)
         {
-            return ModBase.GetFolderNameFromPath(ModBase.GetPathFromFullPath(Token.LocalPath));
+            return ModBase.GetFolderNameFromPath(ModBase.GetPathFromFullPath(token.LocalPath));
         }
 
-        for (int i = 0, loopTo = BasicArray.Count - 1; i <= loopTo; i++)
+        for (int i = 0, loopTo = basicArray.Count - 1; i <= loopTo; i++)
         {
-            var Key = BasicArray[i].Name + BasicArray[i].IsNatives;
-            if (ResultArray.ContainsKey(Key))
+            var key = basicArray[i].Name + basicArray[i].IsNatives;
+            if (resultArray.ContainsKey(key))
             {
-                var BasicArrayVersion = GetVersion(BasicArray[i]);
-                var ResultArrayVersion = GetVersion(ResultArray[Key]);
-                if ((BasicArrayVersion ?? "") != (ResultArrayVersion ?? "") && KeepSameNameDifferentVersionResult)
+                var basicArrayVersion = GetVersion(basicArray[i]);
+                var resultArrayVersion = GetVersion(resultArray[key]);
+                if ((basicArrayVersion ?? "") != (resultArrayVersion ?? "") && keepSameNameDifferentVersionResult)
                 {
                     ModBase.Log(
-                        $"[Minecraft] 发现疑似重复的支持库：{BasicArray[i]} ({BasicArrayVersion}) 与 {ResultArray[Key]} ({ResultArrayVersion})");
-                    ResultArray.Add(Key + ModBase.GetUuid(), BasicArray[i]);
+                        $"[Minecraft] 发现疑似重复的支持库：{basicArray[i]} ({basicArrayVersion}) 与 {resultArray[key]} ({resultArrayVersion})");
+                    resultArray.Add(key + ModBase.GetUuid(), basicArray[i]);
                 }
                 else
                 {
                     ModBase.Log(
-                        $"[Minecraft] 发现重复的支持库：{BasicArray[i]} ({BasicArrayVersion}) 与 {ResultArray[Key]} ({ResultArrayVersion})，已忽略其中之一");
-                    if (CompareVersionGe(BasicArrayVersion, ResultArrayVersion)) ResultArray[Key] = BasicArray[i];
+                        $"[Minecraft] 发现重复的支持库：{basicArray[i]} ({basicArrayVersion}) 与 {resultArray[key]} ({resultArrayVersion})，已忽略其中之一");
+                    if (CompareVersionGe(basicArrayVersion, resultArrayVersion)) resultArray[key] = basicArray[i];
                 }
             }
             else
             {
-                ResultArray.Add(Key, BasicArray[i]);
+                resultArray.Add(key, basicArray[i]);
             }
         }
 
-        return ResultArray.Values.ToList();
+        return resultArray.Values.ToList();
     }
 
     /// <summary>
     ///     获取实例所需支持库文件的 NetFile。
     /// </summary>
-    public static List<DownloadFile> McLibNetFilesFromInstance(McInstance instance)
+    public static List<DownloadFile> McLibNetFilesFromInstance(Instance instance)
     {
         if (!instance.IsLoaded)
             instance.Load();
@@ -2996,17 +2987,17 @@ public static class ModMinecraft
         result.AddRange(McLibNetFilesFromTokens(McLibListGet(instance, false)));
 
         // Authlib-Injector 文件
-        var authlibTargetFile = Path.Combine(ModBase.PathPure, "authlib-injector.jar");
-        JObject authlibDownloadInfo = null;
+        var authlibTargetFile = Path.Combine(ModBase.pathPure, "authlib-injector.jar");
+        JsonObject authlibDownloadInfo = null;
         try
         {
             ModBase.Log("[Minecraft] 开始获取 Authlib-Injector 下载信息");
-            authlibDownloadInfo = (JObject)ModBase.GetJson(ModNet.NetGetCodeByLoader(
+            authlibDownloadInfo = (JsonObject)ModBase.GetJson(ModNet.NetGetCodeByLoader(
                 new[]
                 {
                     "https://authlib-injector.yushi.moe/artifact/latest.json",
                     "https://bmclapi2.bangbang93.com/mirrors/authlib-injector/artifact/latest.json"
-                }, IsJson: true));
+                }, isJson: true));
         }
         catch (Exception ex)
         {
@@ -3016,7 +3007,7 @@ public static class ModMinecraft
         // 校验文件
         if (authlibDownloadInfo is not null)
         {
-            var checker = new ModBase.FileChecker(Hash: authlibDownloadInfo["checksums"]["sha256"].ToString());
+            var checker = new ModBase.FileChecker(hash: authlibDownloadInfo["checksums"]["sha256"].ToString());
             if (checker.Check(authlibTargetFile) is not null)
             {
                 // 开始下载
@@ -3030,26 +3021,24 @@ public static class ModMinecraft
                         downloadAddress.Replace("authlib-injector.yushi.moe",
                             "bmclapi2.bangbang93.com/mirrors/authlib-injector")
                     }, authlibTargetFile,
-                    new ModBase.FileChecker(Hash: authlibDownloadInfo["checksums"]["sha256"].ToString())));
+                    new ModBase.FileChecker(hash: authlibDownloadInfo["checksums"]["sha256"].ToString())));
             }
         }
 
         // 修改渲染器
-        var mesaLoaderWindowsVersion = "25.3.5";
         var mesaLoaderWindowsTargetFile =
-            Path.Combine(ModBase.PathPure, "mesa-loader-windows", mesaLoaderWindowsVersion, "Loader.jar");
+            Path.Combine(ModBase.pathPure, "mesa-loader-windows", ModLaunch.mesaLoaderWindowsVersion, "Loader.jar");
         var renderer = -1;
         if (McInstanceSelected is not null)
-            renderer = Conversions.ToInteger(
-                Operators.SubtractObject(ModBase.Setup.Get("VersionAdvanceRenderer", McInstanceSelected), 1));
-        if (renderer == -1) renderer = Conversions.ToInteger(Config.Launch.Renderer);
+            renderer = Config.Instance.Renderer[McInstanceSelected?.PathInstance] - 1;
+        if (renderer == -1) renderer = Config.Launch.Renderer;
 
         if (renderer != 0 && !File.Exists(mesaLoaderWindowsTargetFile))
         {
             var downloadAddress =
                 "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/org/glavo/mesa-loader-windows/" +
-                mesaLoaderWindowsVersion + "/mesa-loader-windows-" + mesaLoaderWindowsVersion + "-" +
-                (ModBase.Is32BitSystem ? "x86" : ModBase.IsArm64System ? "arm64" : "x64") + ".jar";
+                ModLaunch.mesaLoaderWindowsVersion + "/mesa-loader-windows-" + ModLaunch.mesaLoaderWindowsVersion + "-" +
+                (SystemInfo.Is32BitSystem ? "x86" : SystemInfo.IsArm64System ? "arm64" : "x64") + ".jar";
             result.Add(new DownloadFile(new[] { downloadAddress }, mesaLoaderWindowsTargetFile));
         }
 
@@ -3060,27 +3049,27 @@ public static class ModMinecraft
             {
                 if (Directory.Exists(Path.Combine(instance.PathInstance, "labymod-neo")))
                     Directory.Delete(Path.Combine(instance.PathInstance, "labymod-neo"), true);
-                ModBase.CreateSymbolicLink(Path.Combine(instance.PathInstance, "labymod-neo"), Path.Combine(McFolderSelected, "labymod-neo"),
+                ModBase.CreateSymbolicLink(Path.Combine(instance.PathInstance, "labymod-neo"), Path.Combine(mcFolderSelected, "labymod-neo"),
                     0x2);
             }
 
             try
             {
                 var channelType = instance.JsonObject["labymod_data"]["channelType"].ToString();
-                Directory.CreateDirectory($@"{McFolderSelected}labymod-neo\libraries");
+                Directory.CreateDirectory($@"{mcFolderSelected}labymod-neo\libraries");
                 ModBase.Log("[Minecraft] 开始获取 LabyMod 信息");
-                var labyManifest = (JObject)ModNet.NetGetCodeByRequestRetry(
-                    $"https://releases.r2.labymod.net/api/v1/manifest/{channelType}/latest.json", IsJson: true);
-                var labyAssets = (JObject)labyManifest["assets"];
+                var labyManifest = (JsonObject)ModNet.NetGetCodeByRequestRetry(
+                    $"https://releases.r2.labymod.net/api/v1/manifest/{channelType}/latest.json", isJson: true);
+                var labyAssets = (JsonObject)labyManifest["assets"];
                 var labyModCommitRef = labyManifest["commitReference"].ToString();
                 foreach (var Asset in labyAssets)
                 {
                     var assetName = Asset.Key;
                     var assetSHA1 = Asset.Value.ToString();
-                    var assetPath = $@"{McFolderSelected}labymod-neo\assets\{assetName}.jar";
+                    var assetPath = $@"{mcFolderSelected}labymod-neo\assets\{assetName}.jar";
                     var assetUrl =
                         $"https://releases.r2.labymod.net/api/v1/download/assets/labymod4/{channelType}/{labyModCommitRef}/{assetName}/{assetSHA1}.jar";
-                    var checker = new ModBase.FileChecker(Hash: assetSHA1);
+                    var checker = new ModBase.FileChecker(hash: assetSHA1);
                     if (checker.Check(assetPath) is null)
                         continue;
                     result.Add(new DownloadFile(new[] { assetUrl }, assetPath, checker));
@@ -3093,7 +3082,7 @@ public static class ModMinecraft
         }
 
         // 跳过校验
-        if (Conversions.ToBoolean(ShouldIgnoreFileCheck(instance)))
+        if (ShouldIgnoreFileCheck(instance))
         {
             ModBase.Log("[Minecraft] 用户要求尽量忽略文件检查，这可能会保留有误的文件");
             result = result.Where(f =>
@@ -3116,13 +3105,13 @@ public static class ModMinecraft
     /// </summary>
     public static List<DownloadFile> McLibNetFilesFromTokens(List<McLibToken> libs, string customMcFolder = null)
     {
-        customMcFolder = customMcFolder ?? McFolderSelected;
+        customMcFolder = customMcFolder ?? mcFolderSelected;
         var result = new List<DownloadFile>();
         // 获取
         foreach (var token in libs)
         {
             // 检查文件
-            var checker = new ModBase.FileChecker(ActualSize: token.Size == 0L ? -1 : token.Size, Hash: token.SHA1);
+            var checker = new ModBase.FileChecker(actualSize: token.size == 0L ? -1 : token.size, hash: token.Sha1);
             if (checker.Check(token.LocalPath) is null)
                 continue;
             if (token.IsLocal)
@@ -3147,7 +3136,7 @@ public static class ModMinecraft
                 if (token.Url.Contains("maven"))
                 {
                     var bmclapiUrl = token.Url
-                        .Replace(Strings.Mid(token.Url, 1, token.Url.IndexOfF("maven")),
+                        .Replace(token.Url.Substring(0, token.Url.IndexOfF("maven")),
                             "https://bmclapi2.bangbang93.com/").Replace("maven.fabricmc.net", "maven")
                         .Replace("maven.minecraftforge.net", "maven").Replace("maven.neoforged.net/releases", "maven");
                     if (ModDownload.DlSourcePreferMojang)
@@ -3182,8 +3171,8 @@ public static class ModMinecraft
                 // LabyMod 只有一个下载源
                 urls.Add(token.Url);
                 ModBase.Log(
-                    $"[Download] 获取到 LabyMod 主要库文件的 Size = {token.Size},SHA1 = {token.SHA1}，由于 LabyMod 乱写 Size，已忽略 Size");
-                checker = new ModBase.FileChecker(Hash: token.SHA1); // 只校验 SHA1
+                    $"[Download] 获取到 LabyMod 主要库文件的 Size = {token.size},SHA1 = {token.Sha1}，由于 LabyMod 乱写 Size，已忽略 Size");
+                checker = new ModBase.FileChecker(hash: token.Sha1); // 只校验 SHA1
             }
             else if (urls.Count <= 2)
             {
@@ -3208,14 +3197,14 @@ public static class ModMinecraft
     public static string McLibGet(string original, bool withHead = true, bool ignoreLiteLoader = false,
         string customMcFolder = null)
     {
-        string McLibGetRet = default;
-        customMcFolder = customMcFolder ?? McFolderSelected;
+        string mcLibGetRet = default;
+        customMcFolder = customMcFolder ?? mcFolderSelected;
         var splited = original.Split(":");
-        McLibGetRet = withHead
+        mcLibGetRet = withHead
             ? Path.Combine(customMcFolder, "libraries", splited[0].Replace(".", @"\"), splited[1], splited[2], splited[1] + "-" + splited[2] + ".jar")
             : Path.Combine(splited[0].Replace(".", @"\"), splited[1], splited[2], splited[1] + "-" + splited[2] + ".jar");
         // 判断 OptiFine 是否应该使用 installer
-        if (McLibGetRet.Contains(@"optifine\OptiFine\1.") && splited[2].Split(".").Count() > 1)
+        if (mcLibGetRet.Contains(@"optifine\OptiFine\1.") && splited[2].Split(".").Count() > 1)
         {
             var majorVersion = (int)Math.Round(ModBase.Val(splited[2].Split(".")[1].BeforeFirst("_")));
             var minorVersion = (int)Math.Round(splited[2].Split(".").Count() > 2
@@ -3225,20 +3214,20 @@ public static class ModMinecraft
                     $@"{customMcFolder}libraries\{splited[0].Replace(".", @"\")}\{splited[1]}\{splited[2]}\{splited[1]}-{splited[2]}-installer.jar")) // 仅在 1.12 (无法追溯) 和 1.20.4+ (#5376) 遇到此问题
             {
                 ModLaunch.McLaunchLog("已将 " + original + " 替换为对应的 Installer 文件");
-                McLibGetRet = McLibGetRet.Replace(".jar", "-installer.jar");
+                mcLibGetRet = mcLibGetRet.Replace(".jar", "-installer.jar");
             }
         }
 
-        return McLibGetRet;
+        return mcLibGetRet;
     }
 
     /// <summary>
     ///     检查设置，是否应当忽略文件检查？
     /// </summary>
-    public static object ShouldIgnoreFileCheck(McInstance Version)
+    public static bool ShouldIgnoreFileCheck(Instance version)
     {
-        return (bool)ModBase.Setup.Get("VersionAdvanceAssetsV2", Version) ||
-               Operators.ConditionalCompareObjectEqual(ModBase.Setup.Get("VersionAdvanceAssets", Version), 2, false);
+        return Config.Instance.DisableAssetVerifyV2[version.PathInstance] ||
+               Config.Instance.AssetVerifySolutionV1[version.PathInstance] == 2;
     }
 
     #endregion
@@ -3249,7 +3238,7 @@ public static class ModMinecraft
     /// <summary>
     ///     获取某实例资源文件索引的对应 Json 项，详见实例 Json 中的 assetIndex 项。失败会抛出异常。
     /// </summary>
-    public static JToken McAssetsGetIndex(McInstance instance, bool returnLegacyOnError = false,
+    public static JsonNode McAssetsGetIndex(Instance instance, bool returnLegacyOnError = false,
         bool checkURLEmpty = false)
     {
         string assetsName;
@@ -3267,7 +3256,7 @@ public static class ModMinecraft
                 // 下一个实例
                 if (string.IsNullOrEmpty(instance.InheritInstanceName))
                     break;
-                instance = new McInstance(Path.Combine(McFolderSelected, "versions", instance.InheritInstanceName));
+                instance = new Instance(Path.Combine(mcFolderSelected, "versions", instance.InheritInstanceName));
             }
         }
         catch
@@ -3283,7 +3272,7 @@ public static class ModMinecraft
             // Return GetJson("{""id"": """ & AssetsName & """}")
             // Else
             ModBase.Log("[Minecraft] 无法获取资源文件索引下载地址，使用默认的 legacy 下载地址");
-            return (JToken)ModBase.GetJson(@"{
+            return (JsonNode)ModBase.GetJson(@"{
                 ""id"": ""legacy"",
                 ""sha1"": ""c0fd82e8ce9fbc93119e40d96d5a4e62cfa3f729"",
                 ""size"": 134284,
@@ -3293,13 +3282,13 @@ public static class ModMinecraft
         }
         // End If
 
-        throw new Exception("该实例不存在资源文件索引信息");
+        throw new Exception(Lang.Text("Minecraft.Error.NoAssetIndexInfo"));
     }
 
     /// <summary>
     ///     获取某实例资源文件索引名，优先使用 assetIndex，其次使用 assets。失败会返回 legacy。
     /// </summary>
-    public static string McAssetsGetIndexName(McInstance instance)
+    public static string McAssetsGetIndexName(Instance instance)
     {
         try
         {
@@ -3311,7 +3300,7 @@ public static class ModMinecraft
                 if (instance.JsonObject["assets"] is not null) return instance.JsonObject["assets"].ToString();
                 if (string.IsNullOrEmpty(instance.InheritInstanceName))
                     break;
-                instance = new McInstance(Path.Combine(McFolderSelected, "versions", instance.InheritInstanceName));
+                instance = new Instance(Path.Combine(mcFolderSelected, "versions", instance.InheritInstanceName));
             }
         }
         catch (Exception ex)
@@ -3328,64 +3317,77 @@ public static class ModMinecraft
         /// <summary>
         ///     文件的完整本地路径。
         /// </summary>
-        public string LocalPath;
+        public string localPath;
 
         /// <summary>
         ///     Json 中书写的源路径。例如 minecraft/sounds/mob/stray/death2.ogg 。
         /// </summary>
-        public string SourcePath;
+        public string sourcePath;
 
         /// <summary>
         ///     文件大小。若无有效数据即为 0。
         /// </summary>
-        public long Size;
+        public long size;
 
         /// <summary>
         ///     文件的 Hash 校验码。
         /// </summary>
-        public string Hash;
+        public string hash;
 
         public override string ToString()
         {
-            return ModBase.GetString(Size) + " | " + LocalPath;
+            return ModBase.GetString(size) + " | " + localPath;
         }
+    }
+
+    private static string McAssetsHashPrefix(string hash)
+    {
+        return hash[..2];
+    }
+
+    private static string McAssetsUrl(string hash)
+    {
+        return $"https://resources.download.minecraft.net/{McAssetsHashPrefix(hash)}/{hash}";
     }
 
     /// <summary>
     ///     获取 Minecraft 的资源文件列表。失败会抛出异常。
     /// </summary>
-    private static List<McAssetsToken> McAssetsListGet(McInstance instance)
+    private static List<McAssetsToken> McAssetsListGet(Instance instance)
     {
         var indexName = McAssetsGetIndexName(instance);
         try
         {
             // 初始化
-            if (!File.Exists($@"{McFolderSelected}assets\indexes\{indexName}.json"))
-                throw new FileNotFoundException("未找到 Asset Index",
-                    Path.Combine(McFolderSelected, "assets", "indexes", indexName + ".json"));
+            if (!File.Exists($@"{mcFolderSelected}assets\indexes\{indexName}.json"))
+                throw new FileNotFoundException(Lang.Text("Minecraft.Error.AssetIndexNotFound"),
+                    Path.Combine(mcFolderSelected, "assets", "indexes", indexName + ".json"));
             var result = new List<McAssetsToken>();
-            var json = (JsonObject)JsonNode.Parse(
-                ModBase.ReadFile($@"{McFolderSelected}assets\indexes\{indexName}.json"));
+            var json = (JsonObject)ModBase.GetJson(
+                ModBase.ReadFile($@"{mcFolderSelected}assets\indexes\{indexName}.json"));
 
             // 读取列表
             foreach (var file in json["objects"].AsObject())
             {
                 string localPath;
-                if (json["map_to_resources"] is not null && json["map_to_resources"].GetValue<bool>())
+                var hash = file.Value["hash"].ToString();
+                if (json["map_to_resources"] is not null && json["map_to_resources"].ToObject<bool>())
                     // Remap
                     localPath = Path.Combine(instance.PathIndie, "resources", file.Key.Replace("/", @"\"));
-                else if (json["virtual"] is not null && json["virtual"].GetValue<bool>())
+                else if (json["virtual"] is not null && json["virtual"].ToObject<bool>())
                     // Virtual
-                    localPath = Path.Combine(McFolderSelected, "assets", "virtual", "legacy", file.Key.Replace("/", @"\"));
+                    localPath = Path.Combine(mcFolderSelected, "assets", "virtual", "legacy", file.Key.Replace("/", @"\"));
                 else
+                {
                     // 正常
-                    localPath = Path.Combine(McFolderSelected, "assets", "objects", Strings.Left(file.Value["hash"].ToString(), 2), file.Value["hash"].ToString());
+                    localPath = Path.Combine(mcFolderSelected, "assets", "objects", McAssetsHashPrefix(hash), hash);
+                }
                 result.Add(new McAssetsToken
                 {
-                    LocalPath = localPath,
-                    SourcePath = file.Key,
-                    Hash = file.Value["hash"].ToString(),
-                    Size = Conversions.ToLong(file.Value["size"].ToString())
+                    localPath = localPath,
+                    sourcePath = file.Key,
+                    hash = hash,
+                    size = long.Parse(file.Value["size"].ToString())
                 });
             }
 
@@ -3403,16 +3405,19 @@ public static class ModMinecraft
     /// <summary>
     ///     获取实例缺失的资源文件所对应的 NetTaskFile。
     /// </summary>
-    public static List<DownloadFile> McAssetsFixList(McInstance instance, bool checkHash,
+    public static List<DownloadFile> McAssetsFixList(Instance instance, bool checkHash,
         [Optional] ref ModLoader.LoaderBase progressFeed)
     {
         // 如果需要检查 Hash，则留到下载时处理，以借助多线程加快检查速度
         if (checkHash)
-            return McAssetsListGet(instance).Select(token => new DownloadFile(
-                ModDownload.DlSourceAssetsGet(
-                    $"https://resources.download.minecraft.net/{Strings.Left(token.Hash, 2)}/{token.Hash}"),
-                token.LocalPath,
-                new ModBase.FileChecker(ActualSize: token.Size == 0L ? -1 : token.Size, Hash: token.Hash))).ToList();
+            return McAssetsListGet(instance).Select(token =>
+            {
+                var hash = token.hash;
+                return new DownloadFile(
+                    ModDownload.DlSourceAssetsGet(McAssetsUrl(hash)),
+                    token.localPath,
+                    new ModBase.FileChecker(actualSize: token.size == 0L ? -1 : token.size, hash: hash));
+            }).ToList();
         // 如果不检查 Hash，则立即处理
         var result = new List<DownloadFile>();
 
@@ -3430,15 +3435,15 @@ public static class ModMinecraft
                 if (progressFeed is not null)
                     progressFeed.Progress = 0.05d + 0.94d * i / assetsList.Count;
                 // 检查文件是否存在
-                var file = new FileInfo(token.LocalPath);
-                if (file.Exists && (token.Size == 0L || token.Size == file.Length))
+                var file = new FileInfo(token.localPath);
+                if (file.Exists && (token.size == 0L || token.size == file.Length))
                     continue;
                 // 文件不存在，添加下载
+                var hash = token.hash;
                 result.Add(new DownloadFile(
-                    ModDownload.DlSourceAssetsGet(
-                        $"https://resources.download.minecraft.net/{Strings.Left(token.Hash, 2)}/{token.Hash}"),
-                    token.LocalPath,
-                    new ModBase.FileChecker(ActualSize: token.Size == 0L ? -1 : token.Size, Hash: token.Hash)));
+                    ModDownload.DlSourceAssetsGet(McAssetsUrl(hash)),
+                    token.localPath,
+                    new ModBase.FileChecker(actualSize: token.size == 0L ? -1 : token.size, hash: hash)));
             }
         }
         catch (Exception ex)
