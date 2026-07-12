@@ -979,7 +979,7 @@ It is possible for a village to generate on the border of two or more biomes but
 
 The original inhabitants of villages were pigmen, whose later design concepts were used for piglins.
 
-PCL CE is developed by PCL-Community based on the official PCL, and has no affiliation with Longteng Maoyue.
+PCL CE is developed by PCL-Community based on the official PCL, and has no affiliation with LTCat(龙腾猫跃).
 
 PCL CE supports importing HMCL archives.
 
@@ -1014,8 +1014,6 @@ When the game crashes, never just send a screenshot! Always send the log!! Witho
 Alt+F4 closes the window, it's not diamonds or a gift pack!
 
 Most of the PCL CE development team are students, so updates might be a bit slow.
-
-PCL CE does not support multiple languages; for multilingual support, please go to the sister branch PCL2-Language.
 
 PCL CE supports checking server status in "Instance Settings - Server" or "Tools - Toolbox - Peek at Server", so you can see if your favorite server is online without entering the game.
 

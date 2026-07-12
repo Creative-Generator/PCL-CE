@@ -1,12 +1,10 @@
-using System.IO;
+﻿using System.IO;
 using System.Globalization;
 using System.Reflection;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Newtonsoft.Json.Linq;
 using PCL.Core.App;
 using PCL.Core.Logging;
 using PCL.Core.UI;
@@ -20,8 +18,12 @@ public partial class PageLaunchRight : IRefreshable
     public PageLaunchRight()
     {
         InitializeComponent();
-        onlineLoader = new ModLoader.LoaderTask<string, int>("下载主页", OnlineLoaderSub)
-            { reloadTimeout = 10 * 60 * 1000 };
+        onlineLoader = new ModLoader.LoaderTask<string, int>(
+            Lang.Text("Launch.Homepage.Task.Download"),
+            OnlineLoaderSub)
+        {
+            reloadTimeout = 10 * 60 * 1000
+        };
         Loaded += (_, _) => Init();
         Loaded += (_, _) => Refresh();
         Unloaded += (_, _) => _DisposeHomepageLiveWatcher();
@@ -47,7 +49,7 @@ public partial class PageLaunchRight : IRefreshable
         var input = ModMain.MyMsgBoxInput(Lang.Text("Launch.Right.CommunityHint.InputTitle"));
         if (string.IsNullOrWhiteSpace(input))
             return;
-        input = new string(input.Where(x => char.IsAsciiLetter(x)).ToArray()).ToLower();
+        input = new string(input.Where(char.IsAsciiLetter).ToArray()).ToLower();
         if (input.Contains("pclcommunity"))
         {
             ModAnimation.AniDispose(PanHint, true);
@@ -55,7 +57,7 @@ public partial class PageLaunchRight : IRefreshable
         }
         else
         {
-            ModMain.Hint(Lang.Text("Launch.Right.CommunityHint.WrongInput"));
+            HintService.Hint(Lang.Text("Launch.Right.CommunityHint.WrongInput"));
         }
     }
 
@@ -77,8 +79,13 @@ public partial class PageLaunchRight : IRefreshable
                 }
                 catch (Exception ex)
                 {
-                    ModBase.Log(ex, "加载 PCL 主页自定义信息失败",
-                        ModBase.modeDebug ? ModBase.LogLevel.Msgbox : ModBase.LogLevel.Hint);
+                    ModBase.Log(
+                        ex,
+                        "加载 PCL 主页自定义信息失败",
+                        ModBase.modeDebug
+                            ? ModBase.LogLevel.Msgbox
+                            : ModBase.LogLevel.Hint,
+                        userSummary: Lang.Text("Launch.Error.OperationFailed"));
                 }
             }, $"刷新主页 #{ModBase.GetUuid()}");
     }
@@ -127,81 +134,106 @@ public partial class PageLaunchRight : IRefreshable
 
                 case 2:
                     LogWrapper.Info("[Page] 主页预设：Minecraft 新闻");
-                    url = "https://pcl.mcnews.thestack.top";
+                    url = "https://news.bugjump.net";
                     content = LoadFromNetwork(url);
                     break;
+
+                // case 3:
+                //     LogWrapper.Info("[Page] 主页预设：简单主页");
+                //     url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/MFn233/Custom.xaml";
+                //     content = LoadFromNetwork(url);
+                //     break;
 
                 case 3:
-                    LogWrapper.Info("[Page] 主页预设：简单主页");
-                    url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/MFn233/Custom.xaml";
-                    content = LoadFromNetwork(url);
-                    break;
-
-                case 4:
                     LogWrapper.Info("[Page] 主页预设：每日整合包推荐");
                     url = "https://pclsub.sodamc.com/";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 5:
+                case 4:
                     LogWrapper.Info("[Page] 主页预设：Minecraft 皮肤推荐");
                     url = "https://forgepixel.com/pcl_sub_file";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 6:
+                case 5:
                     LogWrapper.Info("[Page] 主页预设：OpenBMCLAPI 仪表盘 Lite");
                     url = "https://pcl-bmcl.milu.ink/";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 7:
-                    LogWrapper.Info("[Page] 主页预设：主页市场");
-                    url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/JingHai-Lingyun/Custom.xaml";
-                    content = LoadFromNetwork(url);
-                    break;
+                // case 7:
+                //     LogWrapper.Info("[Page] 主页预设：主页市场");
+                //     url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/JingHai-Lingyun/Custom.xaml";
+                //     content = LoadFromNetwork(url);
+                //     break;
 
-                case 8:
-                    LogWrapper.Info("[Page] 主页预设：更新日志");
-                    url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/Joker2184/UpdateHomepage.xaml";
-                    content = LoadFromNetwork(url);
-                    break;
+                // case 8:
+                //     LogWrapper.Info("[Page] 主页预设：更新日志");
+                //     url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/Joker2184/UpdateHomepage.xaml";
+                //     content = LoadFromNetwork(url);
+                //     break;
 
-                case 9:
+                case 6:
                     LogWrapper.Info("[Page] 主页预设：PCL 新功能说明书");
                     url = "https://raw.gitcode.com/WForst-Breeze/WhatsNewPCL/raw/main/Custom.xaml";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 10:
-                    LogWrapper.Info("[Page] 主页预设：OpenMCIM Dashboard");
-                    url = "https://files.mcimirror.top/PCL";
-                    content = LoadFromNetwork(url);
-                    break;
+                // case 10:
+                //     LogWrapper.Info("[Page] 主页预设：OpenMCIM Dashboard");
+                //     url = "https://files.mcimirror.top/PCL";
+                //     content = LoadFromNetwork(url);
+                //     break;
 
-                case 11:
+                case 7:
                     LogWrapper.Info("[Page] 主页预设：杂志主页");
                     url = "https://pclhomeplazaoss.lingyunawa.top:26994/d/Homepages/Ext1nguisher/Custom.xaml";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 12:
+                case 8:
                     LogWrapper.Info("[Page] 主页预设：PCL GitHub 仪表盘");
                     url = "https://ddf.pcl-community.org/Custom.xaml";
                     content = LoadFromNetwork(url);
                     break;
 
-                case 13:
+                case 9:
                     LogWrapper.Info("[Page] 主页预设：Minecraft 更新摘要");
                     url = "https://raw.gitcode.com/ENC_Euphony/PCL-AI-Summary-HomePage/raw/master/Custom.xaml";
                     content = LoadFromNetwork(url);
                     break;
+                
+                case 10:
+                    LogWrapper.Info("[Page] 主页预设：今日新闻热点");
+                    url = "https://pcl.wyc-w.top/index.xaml";
+                    content = LoadFromNetwork(url);
+                    break;
+                
+                case 11:
+                    LogWrapper.Info("[Page] 主页预设：Minecraft 芝士站");
+                    url = "https://www.xxag.top/mkss";
+                    content = LoadFromNetwork(url);
+                    break;
+                
+                case 12:
+                    LogWrapper.Info("[Page] 主页预设：整合包推荐引擎");
+                    url = "https://qawsedrftgyhujiko.fun/pcl2/Custom.xaml";
+                    content = LoadFromNetwork(url);
+                    break;
 
+                case 13:
+                    LogWrapper.Info("[Page] 主页预设：Bangumi 番剧主页");
+                    url = "https://bangumi.p.kaphia.qzz.io";
+                    content = LoadFromNetwork(url);
+                    break;
+                
                 case 14:
                     LogWrapper.Info("[Page] 主页预设：PCL CE 公告栏");
                     url = "https://s3.pysio.online/pcl2-ce/apiv2/pages/announce.xaml";
                     content = LoadFromNetwork(url);
                     break;
+                
                 case 15:
                     LogWrapper.Info("[Page] 主页预设：Minecraft 信息流");
                     Dispatcher.Invoke(() =>
@@ -263,7 +295,10 @@ public partial class PageLaunchRight : IRefreshable
             }
             catch
             {
-                ModBase.Log(Lang.Text("Launch.Homepage.Error.ExternalFile", externalPath), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    Lang.Text("Launch.Homepage.Error.ExternalFile", externalPath),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Launch.Homepage.Error.ExternalFile", externalPath));
             }
         }
 
@@ -296,7 +331,7 @@ public partial class PageLaunchRight : IRefreshable
             if (stream is null) return null;
             using var reader = new StreamReader(stream);
             return reader.ReadToEnd()
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                 .Where(l => !string.IsNullOrWhiteSpace(l))
                 .Select(l => l.Trim())
                 .ToArray();
@@ -372,7 +407,13 @@ public partial class PageLaunchRight : IRefreshable
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Launch.Homepage.Error.Download", address), ModBase.modeDebug ? ModBase.LogLevel.Msgbox : ModBase.LogLevel.Hint);
+            ModBase.Log(
+                ex,
+                Lang.Text("Launch.Homepage.Error.Download", address),
+                ModBase.modeDebug
+                    ? ModBase.LogLevel.Msgbox
+                    : ModBase.LogLevel.Hint,
+                userSummary: Lang.Text("Launch.Homepage.Error.Download", address));
         }
     }
 
@@ -440,14 +481,14 @@ public partial class PageLaunchRight : IRefreshable
             var loadStartTime = DateTime.Now;
             try
             {
-                // 修改时应同时修改 PageOtherHelpDetail.Init
                 content = ModMain.ArgumentReplace(content);
                 while (content.Contains("xmlns"))
                     content = content.RegexReplace("xmlns[^\"']*(\"|')[^\"']*(\"|')", "").Replace("xmlns", "");
                 content =
                     $"<StackPanel xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\" xmlns:sys=\"clr-namespace:System;assembly=System.Runtime\" xmlns:x=\"http://schemas.microsoft.com/winfx/2006/xaml\" xmlns:local=\"clr-namespace:PCL;assembly=Plain Craft Launcher 2\">{content}</StackPanel>";
                 ModBase.Log($"[Page] 实例化：加载主页 UI 开始，最终内容长度：{content.Count()}");
-                PanCustom.Children.Add((UIElement)ModBase.GetObjectFromXML(content));
+                PanCustom.Children.Add((UIElement)ModBase.GetObjectFromXML(content, out var sanitizeResult));
+                _ShowSanitizeHints(sanitizeResult);
                 _ApplyHomepageLivePatchesFromFile();
             }
             catch (Exception ex)
@@ -466,7 +507,11 @@ public partial class PageLaunchRight : IRefreshable
                 }
                 else
                 {
-                    ModBase.Log(ex, Lang.Text("Launch.Homepage.LoadFailed.Title"), ModBase.LogLevel.Hint);
+                    ModBase.Log(
+                        ex,
+                        Lang.Text("Launch.Homepage.LoadFailed.Title"),
+                        ModBase.LogLevel.Hint,
+                        userSummary: Lang.Text("Launch.Homepage.LoadFailed.Title"));
                 }
 
                 return;
@@ -475,7 +520,7 @@ public partial class PageLaunchRight : IRefreshable
             var loadCostTime = (DateTime.Now - loadStartTime).Milliseconds;
             ModBase.Log($"[Page] 实例化：加载主页 UI 完成，耗时 {loadCostTime}ms");
             if (loadCostTime > 3000)
-                ModMain.Hint(Lang.Text("Launch.Homepage.SlowWarning", Lang.Number(Math.Round(loadCostTime / 1000d, 1), "N1")));
+                HintService.Hint(Lang.Text("Launch.Homepage.SlowWarning", Lang.Number(Math.Round(loadCostTime / 1000d, 1), "N1")));
         }
 
         return;
@@ -486,6 +531,15 @@ public partial class PageLaunchRight : IRefreshable
 
     private int loadedContentHash = -1;
     private readonly object loadContentLock = new();
+    private static void _ShowSanitizeHints(XamlEventSanitizer.SanitizeResult result)
+    {
+        foreach (var unsupported in result.UnsupportedTypesFound)
+            HintService.Hint(Lang.Text("Event.Sanitize.UnsupportedTypeHint", unsupported), HintType.Error);
+
+        foreach (var unknown in result.UnrecognizedTypes)
+            HintService.Hint(Lang.Text("Event.Sanitize.UnknownTypeHint", unknown), HintType.Error);
+    }
+
     private const string homepageLivePatchFileName = "CustomLive.json";
     private const string homepageLiveSupportFileName = "CustomLive.supported.json";
     // Keep the reflection patch surface explicit because patch files are written by external tools.
@@ -590,7 +644,10 @@ public partial class PageLaunchRight : IRefreshable
 
         try
         {
-            var token = JToken.Parse(_ReadHomepageLivePatchFile(file));
+            var token = JsonNode.Parse(_ReadHomepageLivePatchFile(file),
+                new JsonNodeOptions { PropertyNameCaseInsensitive = true },
+                new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true });
             foreach (var patch in _EnumerateHomepageLivePatches(token))
                 _ApplyHomepageLivePatch(patch);
         }
@@ -630,14 +687,14 @@ public partial class PageLaunchRight : IRefreshable
     {
         try
         {
-            var marker = new JObject
+            var marker = new JsonObject(new JsonNodeOptions { PropertyNameCaseInsensitive = true })
             {
                 ["processId"] = Environment.ProcessId,
                 ["processPath"] = Environment.ProcessPath ?? "",
                 ["patchFile"] = homepageLivePatchFileName,
                 ["startedAt"] = DateTime.Now.ToString("O", CultureInfo.InvariantCulture)
             };
-            File.WriteAllText(Path.Combine(directory, homepageLiveSupportFileName), marker.ToString(Newtonsoft.Json.Formatting.None));
+            File.WriteAllText(Path.Combine(directory, homepageLiveSupportFileName), marker.ToJsonString());
         }
         catch (Exception ex)
         {
@@ -652,8 +709,11 @@ public partial class PageLaunchRight : IRefreshable
             var file = Path.Combine(_GetHomepageLiveDirectory(), homepageLiveSupportFileName);
             if (!File.Exists(file)) return;
 
-            var marker = JObject.Parse(_ReadHomepageLivePatchFile(file));
-            if (marker["processId"]?.Value<int?>() == Environment.ProcessId)
+            var marker = (JsonObject)JsonNode.Parse(_ReadHomepageLivePatchFile(file),
+                new JsonNodeOptions { PropertyNameCaseInsensitive = true },
+                new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip,
+                    AllowTrailingCommas = true })!;
+            if (marker["processId"]?.GetValue<int>() == Environment.ProcessId)
                 File.Delete(file);
         }
         catch (Exception ex)
@@ -662,13 +722,13 @@ public partial class PageLaunchRight : IRefreshable
         }
     }
 
-    private static IEnumerable<JObject> _EnumerateHomepageLivePatches(JToken token)
+    private static IEnumerable<JsonObject> _EnumerateHomepageLivePatches(JsonNode token)
     {
-        if (token is JObject obj)
+        if (token is JsonObject obj)
         {
-            if (obj["patches"] is JArray patches)
+            if (obj["patches"] is JsonArray patches)
             {
-                foreach (var patch in patches.OfType<JObject>())
+                foreach (var patch in patches.OfType<JsonObject>())
                     yield return patch;
                 yield break;
             }
@@ -679,22 +739,25 @@ public partial class PageLaunchRight : IRefreshable
                 yield break;
             }
 
-            foreach (var property in obj.Properties())
+            foreach (var property in obj)
             {
-                if (property.Value is not JObject patch) continue;
-                patch = (JObject)patch.DeepClone();
-                patch["target"] ??= property.Name;
+                if (property.Value is not JsonObject patch) continue;
+                patch = (JsonObject)JsonNode.Parse(patch.ToJsonString(),
+                    new JsonNodeOptions { PropertyNameCaseInsensitive = true },
+                    new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true })!;
+                patch["target"] ??= property.Key;
                 yield return patch;
             }
         }
-        else if (token is JArray array)
+        else if (token is JsonArray array)
         {
-            foreach (var patch in array.OfType<JObject>())
+            foreach (var patch in array.OfType<JsonObject>())
                 yield return patch;
         }
     }
 
-    private void _ApplyHomepageLivePatch(JObject patch)
+    private void _ApplyHomepageLivePatch(JsonObject patch)
     {
         var target = _TryGetString(patch, "target", "tag", "name");
         if (string.IsNullOrWhiteSpace(target)) return;
@@ -703,7 +766,7 @@ public partial class PageLaunchRight : IRefreshable
             _ApplyHomepageLivePatchToElement(element, patch);
     }
 
-    private void _ApplyHomepageLivePatchToElement(FrameworkElement element, JObject patch)
+    private void _ApplyHomepageLivePatchToElement(FrameworkElement element, JsonObject patch)
     {
         _SetPropertyIfPresent(element, patch, "text", "Text");
         _SetPropertyIfPresent(element, patch, "title", "Title");
@@ -714,10 +777,10 @@ public partial class PageLaunchRight : IRefreshable
         _SetPropertyIfPresent(element, patch, "isEnabled", "IsEnabled");
         _SetPropertyIfPresent(element, patch, "opacity", "Opacity");
 
-        if (patch["properties"] is JObject properties)
+        if (patch["properties"] is JsonObject properties)
         {
-            foreach (var property in properties.Properties())
-                _TrySetElementProperty(element, property.Name, property.Value?.ToString() ?? "");
+            foreach (var property in properties)
+                _TrySetElementProperty(element, property.Key, property.Value?.ToString() ?? "");
         }
 
         var childrenXaml = _TryGetString(patch, "childrenXaml", "ChildrenXaml");
@@ -725,9 +788,9 @@ public partial class PageLaunchRight : IRefreshable
             _ReplacePanelChildren(panel, childrenXaml);
     }
 
-    private static void _SetPropertyIfPresent(FrameworkElement element, JObject patch, string jsonName, string propertyName)
+    private static void _SetPropertyIfPresent(FrameworkElement element, JsonObject patch, string jsonName, string propertyName)
     {
-        if (patch.TryGetValue(jsonName, StringComparison.OrdinalIgnoreCase, out var value))
+        if (patch.TryGetPropertyValue(jsonName, out var value))
             _TrySetElementProperty(element, propertyName, value?.ToString() ?? "");
     }
 
@@ -820,11 +883,11 @@ public partial class PageLaunchRight : IRefreshable
         }
     }
 
-    private static string? _TryGetString(JObject obj, params string[] names)
+    private static string? _TryGetString(JsonObject obj, params string[] names)
     {
         foreach (var name in names)
         {
-            if (obj.TryGetValue(name, StringComparison.OrdinalIgnoreCase, out var value))
+            if (obj.TryGetPropertyValue(name, out var value))
                 return value?.ToString();
         }
 
