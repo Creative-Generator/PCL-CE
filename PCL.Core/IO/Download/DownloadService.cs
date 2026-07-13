@@ -86,7 +86,7 @@ public sealed class DownloadService : GeneralService
     
     private async Task WorkerAsync()
     {
-        await foreach(var chunk in _chunkChannel.Reader.ReadAllAsync())
+        await foreach (var chunk in _chunkChannel.Reader.ReadAllAsync())
         {
             // 等待信号量，控制并发数量
             await _connectionSemaphore.WaitAsync();
