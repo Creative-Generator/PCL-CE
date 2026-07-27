@@ -42,7 +42,6 @@ public sealed class DownloadService : GeneralService
     /// 块下载回调的报告阈值。
     /// </summary>
     public static int ChunkReportThreshold { get; set; } = 64 * 1024;
-
     /// <summary>
     /// 限制全局每秒下载最大千字节数。默认为 <c>null</c> ，即不限制。
     /// </summary>
