@@ -1876,7 +1876,7 @@ public static class ModLaunch
         if (recommendedCode >= 22)
         {
             McLaunchLog("Mojang 要求至少使用 Java " + recommendedCode);
-            minVer = new Version(1, recommendedCode, 0, 0);
+            minVer = new Version(recommendedCode, 0, 0, 0);
             recommendedComponent =
                 ModInstanceList.McMcInstanceSelected.JsonObject?["javaVersion"]?["component"]?.ToString() ??
                 ModInstanceList.McMcInstanceSelected.JsonVersion?["java_component"]?.ToString();
@@ -3566,8 +3566,8 @@ public static class ModLaunch
         var launchRamGb = PageInstanceSetup.GetRam(ModInstanceList.McMcInstanceSelected,
             !mcLaunchJavaSelected.Installation.Is64Bit);
         McLaunchLog("分配的内存：" +
-                    launchRamGb.ToString("N1", CultureInfo.InvariantCulture) + " GB（" +
-                    Math.Round(launchRamGb * 1024d).ToString("N0", CultureInfo.InvariantCulture) + " MB）");
+                    launchRamGb.ToString("N1", CultureInfo.InvariantCulture) + " GiB（" +
+                    Math.Round(launchRamGb * 1024d).ToString("N0", CultureInfo.InvariantCulture) + " MiB）");
         McLaunchLog("MC 文件夹：" + ModFolder.mcFolderSelected);
         McLaunchLog("实例文件夹：" + ModInstanceList.McMcInstanceSelected.PathInstance);
         McLaunchLog("版本隔离：" + ((ModInstanceList.McMcInstanceSelected.PathIndie ?? "") ==
