@@ -209,7 +209,7 @@ public partial class PageLoginProfile
     private void BtnFriends_Click(object sender, EventArgs e)
     {
         var profile = (ModProfile.McProfile)((MyIconButton)sender).Tag;
-        ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, profile)});
+        ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, profile)});
     }
 
     #endregion

@@ -161,7 +161,7 @@ public partial class PageLoginProfileSkin
     // 好友
     private void BtnFriends_Click(object sender, EventArgs e)
     {
-        ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, null, null, ModProfile.selectedProfile) });
+        ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, ModProfile.selectedProfile) });
     }
 
     #endregion
