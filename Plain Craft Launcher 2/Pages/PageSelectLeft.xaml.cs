@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -15,7 +15,7 @@ namespace PCL;
 public partial class PageSelectLeft : IRefreshable
 {
     private bool isFirstLoad = true;
-    private List<ModMinecraft.McFolder> mcFolderListLast;
+    private List<ModFolder.McFolder> mcFolderListLast;
 
     public PageSelectLeft()
     {
@@ -31,7 +31,7 @@ public partial class PageSelectLeft : IRefreshable
 
     private void PageSelectLeft_Initialized(object sender, EventArgs e)
     {
-        ModMinecraft.mcFolderListLoader.PreviewFinish += _ =>
+        ModFolder.mcFolderListLoader.PreviewFinish += _ =>
         {
             if (ModMain.frmSelectLeft is not null) ModBase.RunInUiWait(McFolderListUI);
         };
@@ -49,10 +49,10 @@ public partial class PageSelectLeft : IRefreshable
         try
         {
             // 确认数据有变化
-            if (mcFolderListLast is not null && mcFolderListLast.SequenceEqual(ModMinecraft.mcFolderList))
+            if (mcFolderListLast is not null && mcFolderListLast.SequenceEqual(ModFolder.mcFolderList))
                 return;
 
-            mcFolderListLast = new List<ModMinecraft.McFolder>(ModMinecraft.mcFolderList);
+            mcFolderListLast = new List<ModFolder.McFolder>(ModFolder.mcFolderList);
 
             // 创建 UI
             ModMain.frmSelectLeft.PanList.Children.Clear();
@@ -66,9 +66,9 @@ public partial class PageSelectLeft : IRefreshable
                 FontSize = 12
             });
 
-            for (var i = 0; i < ModMinecraft.mcFolderList.Count; i++)
+            for (var i = 0; i < ModFolder.mcFolderList.Count; i++)
             {
-                var folder = ModMinecraft.mcFolderList[i];
+                var folder = ModFolder.mcFolderList[i];
 
                 // 创建 ContextMenu
                 var contMenu = new ContextMenu();
@@ -100,7 +100,7 @@ public partial class PageSelectLeft : IRefreshable
 
                 switch (folder.type)
                 {
-                    case ModMinecraft.McFolder.Types.Original:
+                    case ModFolder.McFolder.Types.Original:
                         AddMenuItem("Rename", Lang.Text("Select.Folder.Rename"), iconRename, new Thickness(0, 2, 0, 0),
                             ModMain.frmSelectLeft.Rename_Click);
                         AddMenuItem("MoveUp", Lang.Text("Select.Folder.MoveUp"), iconMoveup, null,
@@ -112,14 +112,14 @@ public partial class PageSelectLeft : IRefreshable
                         AddMenuItem("Refresh", Lang.Text("Common.Action.Refresh"), iconRefresh, null,
                             ModMain.frmSelectLeft.Refresh_Click);
                         AddMenuItem("Delete",
-                            ModMinecraft.mcFolderList.Count == 1 &&
+                            ModFolder.mcFolderList.Count == 1 &&
                             folder.Location == Path.Combine(ModBase.exePath, ".minecraft") + @"\"
                                 ? Lang.Text("Select.Folder.Clear")
                                 : Lang.Text("Common.Action.Delete"), iconDelete, new Thickness(0, 0, 0, 2),
                             ModMain.frmSelectLeft.Delete_Click);
                         break;
 
-                    case ModMinecraft.McFolder.Types.RenamedOriginal:
+                    case ModFolder.McFolder.Types.RenamedOriginal:
                         AddMenuItem("Restore", Lang.Text("Select.Folder.RestoreName"), iconRestore,
                             new Thickness(0, 2, 0, 0),
                             ModMain.frmSelectLeft.Restore_Click);
@@ -137,7 +137,7 @@ public partial class PageSelectLeft : IRefreshable
                             ModMain.frmSelectLeft.Delete_Click);
                         break;
 
-                    case ModMinecraft.McFolder.Types.Custom:
+                    case ModFolder.McFolder.Types.Custom:
                         AddMenuItem("Rename", Lang.Text("Select.Folder.Rename"), iconRename, new Thickness(0, 2, 0, 0),
                             ModMain.frmSelectLeft.Rename_Click);
                         AddMenuItem("MoveUp", Lang.Text("Select.Folder.MoveUp"), iconMoveup, null,
@@ -163,7 +163,7 @@ public partial class PageSelectLeft : IRefreshable
                 if (i == 0) moveUpItem.Visibility = Visibility.Collapsed;
 
                 // 如果是最后一个项目，隐藏下移按钮
-                if (i == ModMinecraft.mcFolderList.Count - 1) moveDownItem.Visibility = Visibility.Collapsed;
+                if (i == ModFolder.mcFolderList.Count - 1) moveDownItem.Visibility = Visibility.Collapsed;
 
                 // 构建列表项
                 var newItem = new MyListItem
@@ -229,8 +229,6 @@ public partial class PageSelectLeft : IRefreshable
                     SvgIcon = "lucide/folder-plus"
                 };
                 ToolTipService.SetPlacement(itemCreate, PlacementMode.Right);
-                ToolTipService.SetHorizontalOffset(itemCreate, -50);
-                ToolTipService.SetVerticalOffset(itemCreate, 2.5);
                 itemCreate.Click += (_, _) => ModMain.frmSelectLeft.Create_Click();
                 ModMain.frmSelectLeft.PanList.Children.Add(itemCreate);
             }
@@ -246,8 +244,6 @@ public partial class PageSelectLeft : IRefreshable
                 SvgIcon = "lucide/folder-input"
             };
             ToolTipService.SetPlacement(itemAdd, PlacementMode.Right);
-            ToolTipService.SetHorizontalOffset(itemAdd, -50);
-            ToolTipService.SetVerticalOffset(itemAdd, 2.5);
             itemAdd.Click += (_, _) => ModMain.frmSelectLeft.Add_Click();
             ModMain.frmSelectLeft.PanList.Children.Add(itemAdd);
 
@@ -262,8 +258,6 @@ public partial class PageSelectLeft : IRefreshable
                 SvgIcon = "lucide/package-plus"
             };
             ToolTipService.SetPlacement(itemInstall, PlacementMode.Right);
-            ToolTipService.SetHorizontalOffset(itemInstall, -50);
-            ToolTipService.SetVerticalOffset(itemInstall, 2.5);
             itemInstall.Click += (_, _) => ModModpack.ModpackInstall();
             ModMain.frmSelectLeft.PanList.Children.Add(itemInstall);
 
@@ -271,16 +265,16 @@ public partial class PageSelectLeft : IRefreshable
             ModMain.frmSelectLeft.PanList.Children.Add(new FrameworkElement { Height = 10, IsHitTestVisible = false });
 
             // 确认勾选状态
-            for (var i = 0; i < ModMinecraft.mcFolderList.Count; i++)
-                if (ModMinecraft.mcFolderList[i].Location == ModMinecraft.mcFolderSelected)
+            for (var i = 0; i < ModFolder.mcFolderList.Count; i++)
+                if (ModFolder.mcFolderList[i].Location == ModFolder.mcFolderSelected)
                 {
                     ((MyListItem)ModMain.frmSelectLeft.PanList.Children[i + 1]).Checked = true; //去掉第一个标题
                     return;
                 }
 
-            if (ModMinecraft.mcFolderList.Count == 0)
+            if (ModFolder.mcFolderList.Count == 0)
                 throw new ArgumentNullException("没有可用的 Minecraft 文件夹");
-            States.Game.SelectedFolder = ModMinecraft.mcFolderList[0].Location.Replace(ModBase.exePath, "$");
+            States.Game.SelectedFolder = ModFolder.mcFolderList[0].Location.Replace(ModBase.exePath, "$");
             ((MyListItem)ModMain.frmSelectLeft.PanList.Children[1]).Checked = true;
         }
         catch (Exception ex)
@@ -289,8 +283,8 @@ public partial class PageSelectLeft : IRefreshable
         }
         finally
         {
-            ModLoader.LoaderFolderRun(ModMinecraft.mcInstanceListLoader,
-                ModMinecraft.mcFolderSelected,
+            ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader,
+                ModFolder.mcFolderSelected,
                 ModLoader.LoaderFolderRunType.RunOnUpdated,
                 1,
                 "versions\\");
@@ -300,32 +294,32 @@ public partial class PageSelectLeft : IRefreshable
     private void MoveUp_Click(object sender, RoutedEventArgs e)
     {
         var folder =
-            (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+            (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
                 .PlacementTarget)
             .Tag;
-        var index = ModMinecraft.mcFolderList.IndexOf(folder);
+        var index = ModFolder.mcFolderList.IndexOf(folder);
         if (index <= 0) return;
-        ModMinecraft.mcFolderList.RemoveAt(index);
-        ModMinecraft.mcFolderList.Insert(index - 1, folder);
+        ModFolder.mcFolderList.RemoveAt(index);
+        ModFolder.mcFolderList.Insert(index - 1, folder);
         UpdateFolderOrder();
     }
 
     private void MoveDown_Click(object sender, RoutedEventArgs e)
     {
         var folder =
-            (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+            (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
                 .PlacementTarget)
             .Tag;
-        var index = ModMinecraft.mcFolderList.IndexOf(folder);
-        if (index >= ModMinecraft.mcFolderList.Count - 1) return;
-        ModMinecraft.mcFolderList.RemoveAt(index);
-        ModMinecraft.mcFolderList.Insert(index + 1, folder);
+        var index = ModFolder.mcFolderList.IndexOf(folder);
+        if (index >= ModFolder.mcFolderList.Count - 1) return;
+        ModFolder.mcFolderList.RemoveAt(index);
+        ModFolder.mcFolderList.Insert(index + 1, folder);
         UpdateFolderOrder();
     }
 
     private void UpdateFolderOrder()
     {
-        States.Game.Folders = ModMinecraft.mcFolderList
+        States.Game.Folders = ModFolder.mcFolderList
             .Select(folder => $"{folder.Name}>{folder.Location}")
             .ToArray()
             .Join("|");
@@ -335,12 +329,12 @@ public partial class PageSelectLeft : IRefreshable
     private void Restore_Click(object sender, RoutedEventArgs e)
     {
         var folder =
-            (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+            (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
                 .PlacementTarget)
             .Tag;
-        var index = ModMinecraft.mcFolderList.IndexOf(folder);
-        ModMinecraft.mcFolderList[index].type = ModMinecraft.McFolder.Types.Original;
-        ModMinecraft.mcFolderList[index].Name = Lang.Text("Select.Folder.OfficialLauncherFolder");
+        var index = ModFolder.mcFolderList.IndexOf(folder);
+        ModFolder.mcFolderList[index].type = ModFolder.McFolder.Types.Original;
+        ModFolder.mcFolderList[index].Name = Lang.Text("Select.Folder.OfficialLauncherFolder");
         UpdateFolderOrder();
     }
 
@@ -351,7 +345,7 @@ public partial class PageSelectLeft : IRefreshable
         // 检查是否有下载任务
         if (ModNet.HasDownloadingTask())
         {
-            ModMain.Hint(Lang.Text("Select.Folder.CannotAddWhileDownloading"), ModMain.HintType.Critical);
+            HintService.Hint(Lang.Text("Select.Folder.CannotAddWhileDownloading"), HintType.Error);
             return;
         }
 
@@ -363,7 +357,7 @@ public partial class PageSelectLeft : IRefreshable
                 return;
             if (newFolder.Contains('!') || newFolder.Contains(';'))
             {
-                ModMain.Hint(Lang.Text("Select.Folder.InvalidPathChars"), ModMain.HintType.Critical);
+                HintService.Hint(Lang.Text("Select.Folder.InvalidPathChars"), HintType.Error);
                 return;
             }
 
@@ -384,7 +378,11 @@ public partial class PageSelectLeft : IRefreshable
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Select.Folder.Error.Add", newFolder), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Select.Folder.Error.Add", newFolder),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Select.Folder.Error.Add", newFolder));
         }
     }
 
@@ -414,7 +412,7 @@ public partial class PageSelectLeft : IRefreshable
                 if (!ModBase.CheckPermission(folderPath))
                 {
                     if (!showHint) throw new Exception("PCL 没有访问文件夹的权限：" + folderPath);
-                    ModMain.Hint(Lang.Text("Select.Folder.AccessDenied"), ModMain.HintType.Critical);
+                    HintService.Hint(Lang.Text("Select.Folder.AccessDenied"), HintType.Error);
                     return;
                 }
 
@@ -437,30 +435,30 @@ public partial class PageSelectLeft : IRefreshable
                     isAdded = true;
                     if (folder.Split(">")[0] == displayName)
                     {
-                        if (showHint) ModMain.Hint(Lang.Text("Select.Folder.AlreadyInList"));
+                        if (showHint) HintService.Hint(Lang.Text("Select.Folder.AlreadyInList"));
                         return;
                     }
 
                     folders[i] = $"{displayName}>{folderPath}";
                     isReplace = true;
                     if (showHint)
-                        ModMain.Hint(Lang.Text("Select.Folder.NameUpdated", displayName), ModMain.HintType.Finish);
+                        HintService.Hint(Lang.Text("Select.Folder.NameUpdated", displayName), HintType.Success);
                     break;
                 }
 
                 if (!isAdded) folders.Add($"{displayName}>{folderPath}");
                 States.Game.Folders = folders.ToArray().Join("|");
                 States.Game.SelectedFolder = folderPath.Replace(ModBase.exePath, "$");
-                ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
+                ModFolder.mcFolderListLoader.Start(isForceRestart: true);
                 if (isReplace) return;
-                if (showHint) ModMain.Hint(Lang.Text("Select.Folder.Added", displayName), ModMain.HintType.Finish);
+                if (showHint) HintService.Hint(Lang.Text("Select.Folder.Added", displayName), HintType.Success);
                 var modFolder = new DirectoryInfo(folderPath + @"mods\");
                 if (!(modFolder.Exists && modFolder.EnumerateFiles().Count() >= 3)) return;
                 var versionFolder = new DirectoryInfo(folderPath + @"versions\");
                 if (!(versionFolder.Exists && versionFolder.EnumerateDirectories().Count() <= 3)) return;
                 foreach (var VersionPath in versionFolder.EnumerateDirectories())
                 {
-                    var version = new ModMinecraft.Instance(VersionPath.FullName);
+                    var version = new McInstance(VersionPath.FullName);
                     version.Load();
                     if (!version.Modable) continue;
                     var modIndieFolder = new DirectoryInfo(version.PathInstance + @"mods\");
@@ -472,7 +470,11 @@ public partial class PageSelectLeft : IRefreshable
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Select.Folder.Error.AddNew"), ModBase.LogLevel.Feedback);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Select.Folder.Error.AddNew"),
+                    ModBase.LogLevel.Feedback,
+                    userSummary: Lang.Text("Select.Folder.Error.AddNew"));
             }
         }); // 加上斜杠……
     }
@@ -483,7 +485,7 @@ public partial class PageSelectLeft : IRefreshable
         // 检查是否有下载任务
         if (ModNet.HasDownloadingTask())
         {
-            ModMain.Hint(Lang.Text("Select.Folder.CannotCreateWhileDownloading"), ModMain.HintType.Critical);
+            HintService.Hint(Lang.Text("Select.Folder.CannotCreateWhileDownloading"), HintType.Error);
             return;
         }
 
@@ -492,11 +494,11 @@ public partial class PageSelectLeft : IRefreshable
             Directory.CreateDirectory(ModBase.exePath + @".minecraft\");
             Directory.CreateDirectory(ModBase.exePath + @".minecraft\versions\");
             States.Game.SelectedFolder = @"$.minecraft\";
-            ModMinecraft.McFolderLauncherProfilesJsonCreate(ModBase.exePath + @".minecraft\");
-            ModMain.Hint(Lang.Text("Select.Folder.CreateSuccess"), ModMain.HintType.Finish);
+            ModFolder.McFolderLauncherProfilesJsonCreate(ModBase.exePath + @".minecraft\");
+            HintService.Hint(Lang.Text("Select.Folder.CreateSuccess"), HintType.Success);
         }
 
-        ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
+        ModFolder.mcFolderListLoader.Start(isForceRestart: true);
     }
 
     // 右键菜单
@@ -505,7 +507,7 @@ public partial class PageSelectLeft : IRefreshable
         try
         {
             var folder =
-                (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+                (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
                     .PlacementTarget).Tag;
             switch (ModMain.MyMsgBox(
                         Lang.Text("Select.Folder.Cleanup.Message"),
@@ -553,17 +555,21 @@ public partial class PageSelectLeft : IRefreshable
 
             // 保存
             States.Game.Folders = folders.Count == 0 ? "" : folders.ToArray().Join("|");
-            ModMain.Hint(
-                folder.type == ModMinecraft.McFolder.Types.Custom
+            HintService.Hint(
+                folder.type == ModFolder.McFolder.Types.Custom
                     ? Lang.Text("Select.Folder.RemoveSuccess", name)
                     : Lang.Text("Select.Folder.RestoreSuccess"),
-                ModMain.HintType.Finish);
-            ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
+                HintType.Success);
+            ModFolder.mcFolderListLoader.Start(isForceRestart: true);
         }
 
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Select.Folder.Error.Remove"), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Select.Folder.Error.Remove"),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Select.Folder.Error.Remove"));
         }
     }
 
@@ -573,12 +579,12 @@ public partial class PageSelectLeft : IRefreshable
         var contextMenu = (ContextMenu)menuItem.Parent;
         var popup = (Popup)contextMenu.Parent;
         var listItem = (MyListItem)popup.PlacementTarget;
-        var folder = (ModMinecraft.McFolder)listItem.Tag;
+        var folder = (ModFolder.McFolder)listItem.Tag;
 
         var isClearing =
-            folder.type is ModMinecraft.McFolder.Types.Original or ModMinecraft.McFolder.Types.RenamedOriginal
+            folder.type is ModFolder.McFolder.Types.Original or ModFolder.McFolder.Types.RenamedOriginal
             && folder.Location == ModBase.exePath + @".minecraft\"
-            && ModMinecraft.mcFolderList.Count == 1;
+            && ModFolder.mcFolderList.Count == 1;
 
         var deleteText = Lang.Text(isClearing ? "Select.Folder.Clear" : "Common.Action.Delete");
         var firstWarning =
@@ -613,19 +619,23 @@ public partial class PageSelectLeft : IRefreshable
         {
             try
             {
-                ModMain.Hint(inProgress);
+                HintService.Hint(inProgress);
                 ModBase.DeleteDirectory(folder.Location);
                 if (isClearing)
                     Directory.CreateDirectory(folder.Location);
-                ModMain.Hint(success, ModMain.HintType.Finish);
+                HintService.Hint(success, HintType.Success);
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Select.Folder.Error.Operate", deleteText, folder.Name), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Select.Folder.Error.Operate", deleteText, folder.Name),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Select.Folder.Error.Operate", deleteText, folder.Name));
             }
             finally
             {
-                ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
+                ModFolder.mcFolderListLoader.Start(isForceRestart: true);
             }
         }, "Folder Delete " + ModBase.GetUuid(), ThreadPriority.BelowNormal);
     }
@@ -638,28 +648,28 @@ public partial class PageSelectLeft : IRefreshable
 
     public void Refresh_Click(object sender, RoutedEventArgs e)
     {
-        var data = (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+        var data = (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
             .PlacementTarget).Tag;
         RefreshCurrent(data.Location);
     }
 
     public void RefreshCurrent()
     {
-        RefreshCurrent(ModMinecraft.mcFolderSelected);
+        RefreshCurrent(ModFolder.mcFolderSelected);
     }
 
     public static void RefreshCurrent(string folder)
     {
         ModBase.WriteIni(Path.Combine(folder, "PCL.ini"), "InstanceCache", "");
-        if (folder == ModMinecraft.mcFolderSelected)
-            ModLoader.LoaderFolderRun(ModMinecraft.mcInstanceListLoader, ModMinecraft.mcFolderSelected,
+        if (folder == ModFolder.mcFolderSelected)
+            ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
                 ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
     }
 
     public void Rename_Click(object sender, RoutedEventArgs e)
     {
         var folder =
-            (ModMinecraft.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
+            (ModFolder.McFolder)((MyListItem)((Popup)((ContextMenu)((MyMenuItem)sender).Parent).Parent)
                 .PlacementTarget)
             .Tag;
         try
@@ -693,14 +703,18 @@ public partial class PageSelectLeft : IRefreshable
             // 如果没有添加过，则添加进去（因为修改了默认项的名称）
             if (!isAdded)
                 folders.Add($"{newName}>{folder.Location}");
-            ModMain.Hint(Lang.Text("Select.Folder.NameUpdated", newName), ModMain.HintType.Finish);
+            HintService.Hint(Lang.Text("Select.Folder.NameUpdated", newName), HintType.Success);
             // 保存
             States.Game.Folders = folders.ToArray().Join("|");
-            ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
+            ModFolder.mcFolderListLoader.Start(isForceRestart: true);
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Select.Folder.Error.Rename"), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Select.Folder.Error.Rename"),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Select.Folder.Error.Rename"));
         }
     }
 
@@ -712,15 +726,15 @@ public partial class PageSelectLeft : IRefreshable
         // 检查是否有下载任务
         if (ModNet.HasDownloadingTask(true))
         {
-            ModMain.Hint(Lang.Text("Select.Folder.SwitchBlockedByDownload"), ModMain.HintType.Critical);
+            HintService.Hint(Lang.Text("Select.Folder.SwitchBlockedByDownload"), HintType.Error);
             e.handled = true;
             return;
         }
 
         // 更换
-        States.Game.SelectedFolder = ((ModMinecraft.McFolder)sender.Tag).Location.Replace(ModBase.exePath, "$");
-        ModMinecraft.mcFolderListLoader.Start(isForceRestart: true);
-        ModLoader.LoaderFolderRun(ModMinecraft.mcInstanceListLoader, ModMinecraft.mcFolderSelected,
+        States.Game.SelectedFolder = ((ModFolder.McFolder)sender.Tag).Location.Replace(ModBase.exePath, "$");
+        ModFolder.mcFolderListLoader.Start(isForceRestart: true);
+        ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
             ModLoader.LoaderFolderRunType.RunOnUpdated, 1, @"versions\"); // 刷新实例列表
     }
 
@@ -747,7 +761,7 @@ public partial class PageSelectLeft : IRefreshable
     {
         try
         {
-            if (e.Data.GetDataPresent(typeof(ModMinecraft.McFolder)))
+            if (e.Data.GetDataPresent(typeof(ModFolder.McFolder)))
             {
                 e.Effects = DragDropEffects.Move;
                 // 添加视觉反馈
@@ -772,7 +786,7 @@ public partial class PageSelectLeft : IRefreshable
     {
         try
         {
-            e.Effects = e.Data.GetDataPresent(typeof(ModMinecraft.McFolder))
+            e.Effects = e.Data.GetDataPresent(typeof(ModFolder.McFolder))
                 ? DragDropEffects.Move
                 : DragDropEffects.None;
         }
@@ -807,19 +821,19 @@ public partial class PageSelectLeft : IRefreshable
         try
         {
             var targetItem = (MyListItem)sender;
-            var targetFolder = (ModMinecraft.McFolder)targetItem.Tag;
+            var targetFolder = (ModFolder.McFolder)targetItem.Tag;
 
             // 恢复视觉状态
             targetItem.Opacity = 1.0d;
 
             // 检查数据有效性
-            if (!e.Data.GetDataPresent(typeof(ModMinecraft.McFolder)))
+            if (!e.Data.GetDataPresent(typeof(ModFolder.McFolder)))
             {
                 e.Handled = true;
                 return;
             }
 
-            var sourceFolder = (ModMinecraft.McFolder)e.Data.GetData(typeof(ModMinecraft.McFolder));
+            var sourceFolder = (ModFolder.McFolder)e.Data.GetData(typeof(ModFolder.McFolder));
 
             // 检查是否为有效的拖拽操作
             if (ReferenceEquals(sourceFolder, targetFolder))
@@ -829,20 +843,20 @@ public partial class PageSelectLeft : IRefreshable
             }
 
             // 检查文件夹是否在列表中
-            if (!ModMinecraft.mcFolderList.Contains(sourceFolder) || !ModMinecraft.mcFolderList.Contains(targetFolder))
+            if (!ModFolder.mcFolderList.Contains(sourceFolder) || !ModFolder.mcFolderList.Contains(targetFolder))
             {
                 e.Handled = true;
                 return;
             }
 
             // 获取源文件夹和目标文件夹的索引
-            var sourceIndex = ModMinecraft.mcFolderList.IndexOf(sourceFolder);
-            var targetIndex = ModMinecraft.mcFolderList.IndexOf(targetFolder);
+            var sourceIndex = ModFolder.mcFolderList.IndexOf(sourceFolder);
+            var targetIndex = ModFolder.mcFolderList.IndexOf(targetFolder);
 
             // 执行移动操作
             if (sourceIndex == targetIndex) return;
             // 先移除源文件夹
-            ModMinecraft.mcFolderList.RemoveAt(sourceIndex);
+            ModFolder.mcFolderList.RemoveAt(sourceIndex);
 
             // 计算新的插入位置
             int newTargetIndex;
@@ -853,12 +867,12 @@ public partial class PageSelectLeft : IRefreshable
             newTargetIndex = targetIndex;
 
             // 确保插入位置不超出列表范围
-            if (newTargetIndex > ModMinecraft.mcFolderList.Count)
-                newTargetIndex = ModMinecraft.mcFolderList.Count;
+            if (newTargetIndex > ModFolder.mcFolderList.Count)
+                newTargetIndex = ModFolder.mcFolderList.Count;
             else if (newTargetIndex < 0) newTargetIndex = 0;
 
             // 插入到新位置
-            ModMinecraft.mcFolderList.Insert(newTargetIndex, sourceFolder);
+            ModFolder.mcFolderList.Insert(newTargetIndex, sourceFolder);
 
             // 更新文件夹顺序并刷新UI
             UpdateFolderOrder();
@@ -871,7 +885,11 @@ public partial class PageSelectLeft : IRefreshable
 
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Select.Folder.Error.DragDrop"), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Select.Folder.Error.DragDrop"),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Select.Folder.Error.DragDrop"));
         }
         finally
         {

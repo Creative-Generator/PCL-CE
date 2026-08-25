@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
@@ -33,28 +33,28 @@ public static class ModLaunch
         if (Config.Debug.AddRandomDelay)
             Thread.Sleep(RandomUtils.NextInt(100, 2000));
         // 检查路径
-        if (ModMinecraft.McInstanceSelected.PathIndie.Contains("!") ||
-            ModMinecraft.McInstanceSelected.PathIndie.Contains(";"))
-            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InvalidPathChars", ModMinecraft.McInstanceSelected.PathIndie));
-        if (ModMinecraft.McInstanceSelected.PathInstance.Contains("!") ||
-            ModMinecraft.McInstanceSelected.PathInstance.Contains(";"))
-            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InvalidPathChars", ModMinecraft.McInstanceSelected.PathInstance));
+        if (ModInstanceList.McMcInstanceSelected.PathIndie.Contains("!") ||
+            ModInstanceList.McMcInstanceSelected.PathIndie.Contains(";"))
+            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InvalidPathChars", ModInstanceList.McMcInstanceSelected.PathIndie));
+        if (ModInstanceList.McMcInstanceSelected.PathInstance.Contains("!") ||
+            ModInstanceList.McMcInstanceSelected.PathInstance.Contains(";"))
+            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InvalidPathChars", ModInstanceList.McMcInstanceSelected.PathInstance));
         if (ModBase.IsUtf8CodePage() && !States.Hint.NonAsciiGamePath &&
-            !ModMinecraft.McInstanceSelected.PathInstance.IsASCII())
+            !ModInstanceList.McMcInstanceSelected.PathInstance.IsASCII())
         {
             var userChoice = ModMain.MyMsgBox(
-                Lang.Text("Minecraft.Launch.Precheck.NonAsciiPath.Message", ModMinecraft.McInstanceSelected.Name),
+                Lang.Text("Minecraft.Launch.Precheck.NonAsciiPath.Message", ModInstanceList.McMcInstanceSelected.Name),
                 Lang.Text("Minecraft.Launch.Precheck.NonAsciiPath.Title"), Lang.Text("Minecraft.Launch.Precheck.NonAsciiPath.Continue"), Lang.Text("Minecraft.Launch.Precheck.NonAsciiPath.Back"), Lang.Text("Common.Hint.DoNotShowAgain"));
             if (userChoice == 2) throw new Exception("$$");
             if (userChoice == 3) States.Hint.NonAsciiGamePath = true;
         }
 
         // 检查实例
-        if (ModMinecraft.McInstanceSelected is null)
+        if (ModInstanceList.McMcInstanceSelected is null)
             throw new Exception(Lang.Text("Minecraft.Launch.Precheck.NoInstance"));
-        ModMinecraft.McInstanceSelected.Load();
-        if (ModMinecraft.McInstanceSelected.state == ModMinecraft.McInstanceState.Error)
-            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InstanceError", ModMinecraft.McInstanceSelected.Desc));
+        ModInstanceList.McMcInstanceSelected.Load();
+        if (ModInstanceList.McMcInstanceSelected.state == McInstanceState.Error)
+            throw new Exception(Lang.Text("Minecraft.Launch.Precheck.InstanceError", ModInstanceList.McMcInstanceSelected.Desc));
         // 检查输入信息
         var checkResult = "";
         ModBase.RunInUiWait(() => checkResult = ModProfile.IsProfileValid());
@@ -62,26 +62,26 @@ public static class ModLaunch
         {
             checkResult = Lang.Text("Minecraft.Launch.Precheck.NoProfile");
         }
-        else if (ModMinecraft.McInstanceSelected.Info.HasLabyMod ||
-                 Config.InstanceAuth.LoginRequirementSolution[ModMinecraft.McInstanceSelected?.PathInstance] == 1) // 要求正版验证
+        else if (ModInstanceList.McMcInstanceSelected.Info.HasLabyMod ||
+                 Config.InstanceAuth.LoginRequirementSolution[ModInstanceList.McMcInstanceSelected?.PathInstance] == 1) // 要求正版验证
         {
             if (ModProfile.selectedProfile.Type != McLoginType.Ms) checkResult = Lang.Text("Minecraft.Launch.Precheck.RequireMicrosoft");
         }
-        else if (Config.InstanceAuth.LoginRequirementSolution[ModMinecraft.McInstanceSelected?.PathInstance] == 2) // 要求第三方验证
+        else if (Config.InstanceAuth.LoginRequirementSolution[ModInstanceList.McMcInstanceSelected?.PathInstance] == 2) // 要求第三方验证
         {
             if (ModProfile.selectedProfile.Type != McLoginType.Auth)
                 checkResult = Lang.Text("Minecraft.Launch.Precheck.RequireThirdParty");
             else if (ModProfile.selectedProfile.Server.BeforeLast("/authserver") !=
-                     Config.InstanceAuth.AuthServerAddress[ModMinecraft.McInstanceSelected?.PathInstance])
+                     Config.InstanceAuth.AuthServerAddress[ModInstanceList.McMcInstanceSelected?.PathInstance])
                 checkResult = Lang.Text("Minecraft.Launch.Precheck.AuthServerMismatch");
         }
-        else if (Config.InstanceAuth.LoginRequirementSolution[ModMinecraft.McInstanceSelected?.PathInstance] == 3) // 要求正版验证或第三方验证
+        else if (Config.InstanceAuth.LoginRequirementSolution[ModInstanceList.McMcInstanceSelected?.PathInstance] == 3) // 要求正版验证或第三方验证
         {
             if (ModProfile.selectedProfile.Type == McLoginType.Legacy)
                 checkResult = Lang.Text("Minecraft.Launch.Precheck.RequireMicrosoftOrThirdParty");
             else if (ModProfile.selectedProfile.Type == McLoginType.Auth &&
                      ModProfile.selectedProfile.Server.BeforeLast("/authserver") !=
-                     Config.InstanceAuth.AuthServerAddress[ModMinecraft.McInstanceSelected?.PathInstance])
+                     Config.InstanceAuth.AuthServerAddress[ModInstanceList.McMcInstanceSelected?.PathInstance])
                 checkResult = Lang.Text("Minecraft.Launch.Precheck.AuthServerMismatch");
         }
 
@@ -140,7 +140,7 @@ public static class ModLaunch
         // 正版购买提示
         if (!ModProfile.profileList.Any(x => x.Type == McLoginType.Ms))
         {
-            if (RegionUtils.IsRestrictedFeatAllowed)
+            if (Lang.IsFeaturesUnrestricted)
             {
                 if (ModMain.MyMsgBox(
                         Lang.Text("Minecraft.Launch.PurchaseHint.Message"),
@@ -162,7 +162,7 @@ public static class ModLaunch
                 {
                     case 2:
                     {
-                        ModMain.Hint(Lang.Text("Minecraft.Launch.DemoMode"), ModMain.HintType.Critical);
+                        HintService.Hint(Lang.Text("Minecraft.Launch.DemoMode"), HintType.Error);
                         currentLaunchOptions.ExtraArgs.Add("--demo");
                         break;
                     }
@@ -195,7 +195,7 @@ public static class ModLaunch
         ///     强行指定启动的 MC 实例。
         ///     默认值：Nothing。使用 McInstanceCurrent。
         /// </summary>
-        public ModMinecraft.Instance instance = null;
+        public McInstance instance = null;
 
         /// <summary>
         ///     是否为 “测试游戏” 按钮启动的游戏。
@@ -235,28 +235,28 @@ public static class ModLaunch
             throw new Exception("McLaunchStart 必须在 UI 线程调用！");
         if (mcLaunchLoader.State == ModBase.LoadState.Loading)
         {
-            ModMain.Hint(Lang.Text("Minecraft.Launch.Error.AlreadyLaunching"), ModMain.HintType.Critical);
+            HintService.Hint(Lang.Text("Minecraft.Launch.Error.AlreadyLaunching"), HintType.Error);
             isLaunching = false;
             return false;
         }
 
         // 强制切换需要启动的实例
         if (currentLaunchOptions.instance is not null &&
-            ModMinecraft.McInstanceSelected != currentLaunchOptions.instance)
+            ModInstanceList.McMcInstanceSelected != currentLaunchOptions.instance)
         {
             McLaunchLog("在启动前切换到实例 " + currentLaunchOptions.instance.Name);
             // 检查实例
             currentLaunchOptions.instance.Load();
-            if (currentLaunchOptions.instance.state == ModMinecraft.McInstanceState.Error)
+            if (currentLaunchOptions.instance.state == McInstanceState.Error)
             {
-                ModMain.Hint(Lang.Text("Minecraft.Launch.Error.CannotLaunch", currentLaunchOptions.instance.Desc), ModMain.HintType.Critical);
+                HintService.Hint(Lang.Text("Minecraft.Launch.Error.CannotLaunch", currentLaunchOptions.instance.Desc), HintType.Error);
                 isLaunching = false;
                 return false;
             }
 
             // 切换实例
-            ModMinecraft.McInstanceSelected = currentLaunchOptions.instance;
-            States.Game.SelectedInstance = ModMinecraft.McInstanceSelected.Name;
+            ModInstanceList.McMcInstanceSelected = currentLaunchOptions.instance;
+            States.Game.SelectedInstance = ModInstanceList.McMcInstanceSelected.Name;
             ModMain.frmLaunchLeft.RefreshButtonsUI();
             ModMain.frmLaunchLeft.RefreshPage(false);
         }
@@ -275,7 +275,7 @@ public static class ModLaunch
     /// </summary>
     public static void McLaunchLog(string text)
     {
-        text = ModMinecraft.FilterUserName(ModMinecraft.FilterAccessToken(text, '*'), '*');
+        text = McLogFilter.FilterUserName(McLogFilter.FilterAccessToken(text, '*'), '*');
         ModBase.RunInUi(() =>
             ModMain.frmLaunchRight.LabLog.Text += "\r\n" + "[" + TimeUtils.GetTimeNow() + "] " + text);
         ModBase.Log("[Launch] " + text);
@@ -329,7 +329,7 @@ public static class ModLaunch
         catch (Exception ex)
         {
             if (!ex.Message.StartsWithF("$$"))
-                ModMain.Hint(ex.Message, ModMain.HintType.Critical);
+                HintService.Hint(Lang.Text("Minecraft.Launch.Precheck.Failed.WithDetail", ex.Message), HintType.Error);
             throw;
         }
 
@@ -342,12 +342,12 @@ public static class ModLaunch
                 new ModLoader.LoaderTask<int, int>(Lang.Text("Minecraft.Launch.Stage.GetJava"), McLaunchJava) { ProgressWeight = 4d, block = false },
                 mcLoginLoader,
                 new ModLoader.LoaderCombo<string>(Lang.Text("Minecraft.Launch.Stage.CompleteFiles"),
-                        ModDownload.DlClientFix(ModMinecraft.McInstanceSelected, false,
+                        ModDownload.DlClientFix(ModInstanceList.McMcInstanceSelected, false,
                             ModDownload.AssetsIndexExistsBehaviour.DownloadInBackground))
                     { ProgressWeight = 15d, show = false },
-                new ModLoader.LoaderTask<string, List<ModMinecraft.McLibToken>>(Lang.Text("Minecraft.Launch.Stage.GetArguments"), McLaunchArgumentMain)
+                new ModLoader.LoaderTask<string, List<ModLibrary.McLibToken>>(Lang.Text("Minecraft.Launch.Stage.GetArguments"), McLaunchArgumentMain)
                     { ProgressWeight = 2d },
-                new ModLoader.LoaderTask<List<ModMinecraft.McLibToken>, int>(Lang.Text("Minecraft.Launch.Stage.ExtractNatives"), McLaunchNatives)
+                new ModLoader.LoaderTask<List<ModLibrary.McLibToken>, int>(Lang.Text("Minecraft.Launch.Stage.ExtractNatives"), McLaunchNatives)
                     { ProgressWeight = 2d },
                 new ModLoader.LoaderTask<int, int>(Lang.Text("Minecraft.Launch.Stage.PreLaunch"), _ => McLaunchPrerun()) { ProgressWeight = 1d },
                 new ModLoader.LoaderTask<int, int>(Lang.Text("Minecraft.Launch.Stage.CustomCommand"), McLaunchCustom) { ProgressWeight = 1d },
@@ -377,15 +377,15 @@ public static class ModLaunch
             {
                 case ModBase.LoadState.Finished:
                 {
-                    ModMain.Hint(Lang.Text("Minecraft.Launch.Success", ModMinecraft.McInstanceSelected.Name), ModMain.HintType.Finish);
+                    HintService.Hint(Lang.Text("Minecraft.Launch.Success", ModInstanceList.McMcInstanceSelected.Name), HintType.Success);
                     break;
                 }
                 case ModBase.LoadState.Aborted:
                 {
                     if (abortHint is null)
-                        ModMain.Hint(currentLaunchOptions?.SaveBatch is null ? Lang.Text("Minecraft.Launch.Cancelled") : Lang.Text("Minecraft.Launch.ExportScript.Cancelled"));
+                        HintService.Hint(currentLaunchOptions?.SaveBatch is null ? Lang.Text("Minecraft.Launch.Cancelled") : Lang.Text("Minecraft.Launch.ExportScript.Cancelled"));
                     else
-                        ModMain.Hint(abortHint, ModMain.HintType.Finish);
+                        HintService.Hint(abortHint, HintType.Success);
 
                     break;
                 }
@@ -412,8 +412,12 @@ public static class ModLaunch
                     // 若有以 $ 开头的错误信息，则以此为准显示提示
                     // 若错误信息为 $$，则不提示
                     if (currentEx.Message != "$$")
-                        ModMain.MyMsgBox(currentEx.Message.TrimStart('$'),
-                            currentLaunchOptions?.SaveBatch is null ? Lang.Text("Launch.Error.Title") : Lang.Text("Launch.Error.ExportScriptTitle"));
+                        ModMain.MyMsgBox(
+                            Lang.Text("Minecraft.Launch.Error.SpecialMessage.WithDetail",
+                                currentEx.Message.TrimStart('$')),
+                            currentLaunchOptions?.SaveBatch is null
+                                ? Lang.Text("Launch.Error.Title")
+                                : Lang.Text("Launch.Error.ExportScriptTitle"));
                     throw;
                 }
 
@@ -426,8 +430,18 @@ public static class ModLaunch
 
             // 没有特殊处理过的错误信息
             McLaunchLog("错误：" + ex);
-            ModBase.Log(ex, currentLaunchOptions?.SaveBatch is null ? "Minecraft launch failed" : "Export script failed",
-                ModBase.LogLevel.Msgbox, currentLaunchOptions?.SaveBatch is null ? Lang.Text("Launch.Error.Title") : Lang.Text("Launch.Error.ExportScriptTitle"));
+            ModBase.Log(
+                ex,
+                currentLaunchOptions?.SaveBatch is null
+                    ? "Minecraft launch failed"
+                    : "Export script failed",
+                ModBase.LogLevel.Msgbox,
+                currentLaunchOptions?.SaveBatch is null
+                    ? Lang.Text("Launch.Error.Title")
+                    : Lang.Text("Launch.Error.ExportScriptTitle"),
+                userSummary: currentLaunchOptions?.SaveBatch is null
+                    ? Lang.Text("Minecraft.Launch.Error.LaunchFailed")
+                    : Lang.Text("Minecraft.Launch.Error.ExportScriptFailed"));
             throw;
         }
     }
@@ -604,7 +618,11 @@ public static class ModLaunch
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Minecraft.Launch.Login.Error.Input"), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Minecraft.Launch.Login.Error.Input"),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Minecraft.Launch.Login.Error.Input"));
         }
 
         return loginData;
@@ -764,7 +782,7 @@ public static class ModLaunch
                     ModProfile.profileList[index].Username = result[1];
                     ModProfile.profileList[index].AccessToken = accessToken;
                     ModProfile.profileList[index].RefreshToken = oauthRefreshToken;
-                    ModMain.Hint(Lang.Text("Minecraft.Launch.Login.Microsoft.ProfileAlreadyAdded"));
+                    HintService.Hint(Lang.Text("Minecraft.Launch.Login.Microsoft.ProfileAlreadyAdded"));
                     goto SkipLogin;
                 }
             }
@@ -1380,11 +1398,14 @@ public static class ModLaunch
             }
             catch (WebException ex)
             {
-                HandleHttpWebException(ex, "验证登录失败");
+                _HandleHttpWebException(ex, "验证登录失败");
+            }
+            catch (HttpResponseException ex){
+                ModProfile.ProfileLog($"验证登录失败: {ex}");
             }
             catch (Exception ex)
             {
-                HandleException(ex, "验证登录失败");
+                _HandleException(ex, "验证登录失败", "Minecraft.Launch.Login.Auth.ValidationFailed.WithDetail");
             }
 
             data.Progress = 0.25d;
@@ -1401,7 +1422,10 @@ public static class ModLaunch
             catch (Exception ex)
             {
                 ModProfile.ProfileLog(Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed") + ": " + ex);
-                ModMain.MyMsgBox(Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed") + ": " + ex, Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"), isWarn: true);
+                ModMain.MyMsgBox(
+                    Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed.WithDetail", ex.ToString()),
+                    Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"),
+                    isWarn: true);
                 if (wasRefreshed)
                     throw new Exception(Lang.Text("Minecraft.Launch.Login.Auth.SecondRefreshFailed"), ex);
             }
@@ -1415,11 +1439,11 @@ public static class ModLaunch
         }
         catch (WebException ex)
         {
-            HandleLoginHttpException(ex);
+            _HandleLoginHttpException(ex);
         }
         catch (Exception ex)
         {
-            HandleException(ex, "第三方登录失败");
+            _HandleException(ex, "第三方登录失败", "Minecraft.Launch.Login.Auth.LoginFailed.WithDetail");
         }
 
         // 如果需要刷新，循环刷新一次
@@ -1439,12 +1463,19 @@ public static class ModLaunch
             catch (Exception ex)
             {
                 ModProfile.ProfileLog(Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed") + ": " + ex);
-                ModMain.MyMsgBox(Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed") + ": " + ex, Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"), isWarn: true);
+                ModMain.MyMsgBox(
+                    Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed.WithDetail", ex.ToString()),
+                    Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"),
+                    isWarn: true);
                 throw new Exception(Lang.Text("Minecraft.Launch.Login.Auth.SecondRefreshFailed"), ex);
             }
         }
 
         // 最终完成
+        // 兜底校验：若走到这里仍未取得有效 AccessToken（例如回退登录的 HTTP 失败被 McLoginRequestLogin
+        // 吞掉并返回 false），说明登录实际失败，必须中止，避免带着空凭据继续启动（见 #3307 review）。
+        if (string.IsNullOrEmpty(data.output.AccessToken))
+            throw new Exception(Lang.Text("Minecraft.Launch.Login.Failed"));
         data.Progress = 0.95d;
     }
 
@@ -1460,57 +1491,52 @@ public static class ModLaunch
     /// <summary>
     ///     统一处理 HttpWebException
     /// </summary>
-    private static void HandleHttpWebException(WebException ex, string logPrefix)
+    private static void _HandleHttpWebException(WebException ex, string logPrefix)
     {
         var allMessage = ex.ToString();
         ModProfile.ProfileLog(logPrefix + "：" + allMessage);
 
-        if ((allMessage.Contains("超时") || allMessage.Contains("imeout")) && !allMessage.Contains("403"))
-        {
-            ModProfile.ProfileLog("已触发超时登录失败");
-            ModMain.MyMsgBox(
-                Lang.Text("Minecraft.Launch.Login.Auth.Timeout.DetailMessage") + "\r\n" + "\r\n" +
-                ex.Message,
-                Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"), isWarn: true);
+        if ((!allMessage.Contains("超时") && !allMessage.Contains("imeout"))
+            || allMessage.Contains("403"))
+            return;
+        ModProfile.ProfileLog("已触发超时登录失败");
+        var message = Lang.Text("Minecraft.Launch.Login.Auth.Timeout.WithDetail", ex.ToString());
+        ModMain.MyMsgBox(
+            message,
+            Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"),
+            isWarn: true);
 
-            throw new Exception(Lang.Text("Minecraft.Launch.Login.Auth.Timeout.Message") + "\r\n" +
-                                "\r\n" + "详细信息：" + ex.InnerException);
-        }
+        throw new Exception("$" + message);
     }
 
     /// <summary>
     ///     统一处理普通异常
     /// </summary>
-    private static void HandleException(Exception ex, string logPrefix)
+    private static void _HandleException(
+        Exception ex,
+        string logPrefix,
+        string userMessageKey)
     {
         ModProfile.ProfileLog(logPrefix + "：" + ex);
-        ModMain.MyMsgBox(logPrefix + ": " + ex, Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"), isWarn: true);
-        throw new Exception("$" + logPrefix + "\r\n" + "\r\n" + "详细信息：" + ex);
+        var message = Lang.Text(userMessageKey, ex.ToString());
+        ModMain.MyMsgBox(
+            message,
+            Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"),
+            isWarn: true);
+        throw new Exception("$" + message);
     }
 
     /// <summary>
     ///     处理普通登录 HttpWebException
     /// </summary>
-    private static void HandleLoginHttpException(WebException ex)
+    private static void _HandleLoginHttpException(WebException ex)
     {
         ModProfile.ProfileLog("验证失败：" + ex);
-        string message = null;
-        var responseText = ex.InnerException;
-
-        try
-        {
-            message = Lang.Text("Minecraft.Launch.Login.Auth.DetailPrefix");
-        }
-        catch
-        {
-            // 忽略解析错误
-        }
-
-        if (message is null)
-            message = Lang.Text("Minecraft.Launch.Login.Auth.NetworkFailed.Message") + "\r\n" + "\r\n" +
-                       "详细信息：" + responseText;
-
-        ModMain.MyMsgBox(Lang.Text("Minecraft.Launch.Login.Auth.RefreshFailed") + ": " + ex, Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"), isWarn: true);
+        var message = Lang.Text("Minecraft.Launch.Login.Auth.NetworkFailed.WithDetail", ex.ToString());
+        ModMain.MyMsgBox(
+            message,
+            Lang.Text("Minecraft.Launch.Login.Auth.FailedTitle"),
+            isWarn: true);
         throw new Exception("$" + message);
     }
 
@@ -1594,9 +1620,13 @@ public static class ModLaunch
         }
         catch (HttpResponseException ex)
         {
-            if (_TryGetLastError(ex, out var message)) ModMain.MyMsgBox(message, Lang.Text("Minecraft.Launch.Login.Failed"));
+            // 刷新失败必须向上抛出：否则 McLoginServerStart 会把本次登录判为“刷新成功”、带着空令牌继续
+            // 启动，并丧失“回退到普通登录”的自动恢复机会。保留服务端错误详情作为消息，并把原始
+            // HttpResponseException（含状态码/堆栈）作为 InnerException 以便诊断；同时显式 Dispose 及时
+            // 释放底层 Response，不依赖终结器兜底（其回收时机不确定，可能令底层资源驻留）。
+            var message = _TryGetLastError(ex, out var detail) ? detail : ex.Message;
             ex.Dispose();
-            return;
+            throw new Exception(message, ex);
         }
     }
 
@@ -1626,12 +1656,12 @@ public static class ModLaunch
             if (loginJson["availableProfiles"].AsArray().Count == 0)
             {
                 if (data.input.ForceReselectProfile)
-                    ModMain.Hint(Lang.Text("Minecraft.Launch.Login.Auth.NoProfileCannotSwitch"), ModMain.HintType.Critical);
+                    HintService.Hint(Lang.Text("Minecraft.Launch.Login.Auth.NoProfileCannotSwitch"), HintType.Error);
                 throw new Exception(Lang.Text("Minecraft.Launch.Login.Auth.NoProfile"));
             }
 
             if (data.input.ForceReselectProfile && loginJson["availableProfiles"].AsArray().Count == 1)
-                ModMain.Hint(Lang.Text("Minecraft.Launch.Login.Auth.OnlyOneProfile"), ModMain.HintType.Critical);
+                HintService.Hint(Lang.Text("Minecraft.Launch.Login.Auth.OnlyOneProfile"), HintType.Error);
             string selectedName = null;
             string selectedId = null;
             if ((loginJson["selectedProfile"] is null || data.input.ForceReselectProfile) &&
@@ -1792,45 +1822,45 @@ public static class ModLaunch
         var maxVer = new Version(999, 999, 999, 999);
 
         // MC 大版本检测
-        if ((!ModMinecraft.McInstanceSelected.Info.Valid &&
-             ModMinecraft.McInstanceSelected.releaseTime >= new DateTime(2024, 4, 2)) ||
-            (ModMinecraft.McInstanceSelected.Info.Valid &&
-             ModMinecraft.McInstanceSelected.Info.vanilla >= new Version(20, 0, 5)))
+        if ((!ModInstanceList.McMcInstanceSelected.Info.Valid &&
+             ModInstanceList.McMcInstanceSelected.releaseTime >= new DateTime(2024, 4, 2)) ||
+            (ModInstanceList.McMcInstanceSelected.Info.Valid &&
+             ModInstanceList.McMcInstanceSelected.Info.vanilla >= new Version(20, 0, 5)))
         {
             // 1.20.5+ (24w14a+)：至少 Java 21
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] MC 1.20.5+ (24w14a+) 要求至少 Java 21");
             minVer = new Version(21, 0, 0, 0);
         }
-        else if ((!ModMinecraft.McInstanceSelected.Info.Valid &&
-                  ModMinecraft.McInstanceSelected.releaseTime >= new DateTime(2021, 11, 16)) ||
-                 (ModMinecraft.McInstanceSelected.Info.Valid &&
-                  ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 18))
+        else if ((!ModInstanceList.McMcInstanceSelected.Info.Valid &&
+                  ModInstanceList.McMcInstanceSelected.releaseTime >= new DateTime(2021, 11, 16)) ||
+                 (ModInstanceList.McMcInstanceSelected.Info.Valid &&
+                  ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 18))
         {
             // 1.18 pre2+：至少 Java 17
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] MC 1.18 pre2+ 要求至少 Java 17");
             minVer = new Version(17, 0, 0, 0);
         }
-        else if ((!ModMinecraft.McInstanceSelected.Info.Valid &&
-                  ModMinecraft.McInstanceSelected.releaseTime >= new DateTime(2021, 5, 11)) ||
-                 (ModMinecraft.McInstanceSelected.Info.Valid &&
-                  ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 17))
+        else if ((!ModInstanceList.McMcInstanceSelected.Info.Valid &&
+                  ModInstanceList.McMcInstanceSelected.releaseTime >= new DateTime(2021, 5, 11)) ||
+                 (ModInstanceList.McMcInstanceSelected.Info.Valid &&
+                  ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 17))
         {
             // 1.17+ (21w19a+)：至少 Java 16
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] MC 1.17+ (21w19a+) 要求至少 Java 16");
             minVer = new Version(16, 0, 0, 0);
         }
-        else if (ModMinecraft.McInstanceSelected.releaseTime.Year >= 2017) // Minecraft 1.12 与 1.11 的分界线正好是 2017 年，太棒了
+        else if (ModInstanceList.McMcInstanceSelected.releaseTime.Year >= 2017) // Minecraft 1.12 与 1.11 的分界线正好是 2017 年，太棒了
         {
             // 1.12+：至少 Java 8
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] MC 1.12+ 要求至少 Java 8");
             minVer = new Version(1, 8, 0, 0);
         }
-        else if (ModMinecraft.McInstanceSelected.releaseTime <= new DateTime(2013, 5, 1) &&
-                 ModMinecraft.McInstanceSelected.releaseTime.Year >= 2001) // 避免某些版本写个 1960 年
+        else if (ModInstanceList.McMcInstanceSelected.releaseTime <= new DateTime(2013, 5, 1) &&
+                 ModInstanceList.McMcInstanceSelected.releaseTime.Year >= 2001) // 避免某些版本写个 1960 年
         {
             // 1.5.2-：最高 Java 8
             if (ModBase.modeDebug)
@@ -1841,35 +1871,35 @@ public static class ModLaunch
         // 原版 26+：获取 Mojang 要求的 Java 版本
         string recommendedComponent = null;
         var recommendedCode =
-            ModMinecraft.McInstanceSelected.JsonObject?["javaVersion"]?["majorVersion"]?.ToObject<int>() ??
-            ModMinecraft.McInstanceSelected.JsonVersion?["java_version"]?.ToObject<int>() ?? 0;
+            ModInstanceList.McMcInstanceSelected.JsonObject?["javaVersion"]?["majorVersion"]?.ToObject<int>() ??
+            ModInstanceList.McMcInstanceSelected.JsonVersion?["java_version"]?.ToObject<int>() ?? 0;
         if (recommendedCode >= 22)
         {
             McLaunchLog("Mojang 要求至少使用 Java " + recommendedCode);
-            minVer = new Version(1, recommendedCode, 0, 0);
+            minVer = new Version(recommendedCode, 0, 0, 0);
             recommendedComponent =
-                ModMinecraft.McInstanceSelected.JsonObject?["javaVersion"]?["component"]?.ToString() ??
-                ModMinecraft.McInstanceSelected.JsonVersion?["java_component"]?.ToString();
+                ModInstanceList.McMcInstanceSelected.JsonObject?["javaVersion"]?["component"]?.ToString() ??
+                ModInstanceList.McMcInstanceSelected.JsonVersion?["java_component"]?.ToString();
             if (string.IsNullOrEmpty(recommendedComponent))
                 recommendedComponent = null;
         }
 
         // OptiFine 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasOptiFine && ModMinecraft.McInstanceSelected.Info.Valid) // 不管非标准版本
+        if (ModInstanceList.McMcInstanceSelected.Info.HasOptiFine && ModInstanceList.McMcInstanceSelected.Info.Valid) // 不管非标准版本
         {
-            if (ModMinecraft.McInstanceSelected.Info.vanilla.Major < 7)
+            if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major < 7)
             {
                 // <1.7：至多 Java 8
                 maxVer = new Version(1, 8, 999, 999);
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 8 &&
-                     ModMinecraft.McInstanceSelected.Info.vanilla.Major < 12)
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 8 &&
+                     ModInstanceList.McMcInstanceSelected.Info.vanilla.Major < 12)
             {
                 // 1.8 - 1.11：必须恰好 Java 8
                 minVer = new Version(1, 8, 0, 0);
                 maxVer = new Version(1, 8, 999, 999);
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major == 12)
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major == 12)
             {
                 // 1.12：最高 Java 8
                 maxVer = new Version(1, 8, 999, 999);
@@ -1877,42 +1907,42 @@ public static class ModLaunch
         }
 
         // Forge 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasForge)
+        if (ModInstanceList.McMcInstanceSelected.Info.HasForge)
         {
-            if (ModMinecraft.McInstanceSelected.Info.vanilla >= new Version(6, 0, 1) &&
-                ModMinecraft.McInstanceSelected.Info.vanilla <= new Version(7, 0, 2))
+            if (ModInstanceList.McMcInstanceSelected.Info.vanilla >= new Version(6, 0, 1) &&
+                ModInstanceList.McMcInstanceSelected.Info.vanilla <= new Version(7, 0, 2))
             {
                 // 1.6.1 - 1.7.2：必须 Java 7
                 minVer = new Version(1, 7, 0, 0) > minVer ? new Version(1, 7, 0, 0) : minVer;
                 maxVer = new Version(1, 7, 999, 999) < maxVer ? new Version(1, 7, 999, 999) : maxVer;
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major <= 12 ||
-                     !ModMinecraft.McInstanceSelected.Info.Valid) // 非标准版本
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major <= 12 ||
+                     !ModInstanceList.McMcInstanceSelected.Info.Valid) // 非标准版本
             {
                 // <=1.12：Java 8
                 maxVer = new Version(1, 8, 999, 999);
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major <= 14)
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major <= 14)
             {
                 // 1.13 - 1.14：Java 8 - 10
                 minVer = new Version(1, 8, 0, 0) > minVer ? new Version(1, 8, 0, 0) : minVer;
                 maxVer = new Version(1, 10, 999, 999) < maxVer ? new Version(1, 10, 999, 999) : maxVer;
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major == 15)
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major == 15)
             {
                 // 1.15：Java 8 - 15
                 minVer = new Version(1, 8, 0, 0) > minVer ? new Version(1, 8, 0, 0) : minVer;
                 maxVer = new Version(1, 15, 999, 999) < maxVer ? new Version(1, 15, 999, 999) : maxVer;
             }
-            else if (ModMinecraft.CompareVersionGe(ModMinecraft.McInstanceSelected.Info.Forge, "34.0.0") &&
-                     ModMinecraft.CompareVersionGe("36.2.25", ModMinecraft.McInstanceSelected.Info.Forge))
+            else if (McVersionComparer.CompareVersionGe(ModInstanceList.McMcInstanceSelected.Info.Forge, "34.0.0") &&
+                     McVersionComparer.CompareVersionGe("36.2.25", ModInstanceList.McMcInstanceSelected.Info.Forge))
             {
                 // 1.16，Forge 34.X ~ 36.2.25：最高 Java 8u321
                 maxVer = new Version(1, 8, 0, 320) < maxVer ? new Version(1, 8, 0, 321) : maxVer;
             }
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 18 &&
-                     ModMinecraft.McInstanceSelected.Info.vanilla.Major < 19 &&
-                     ModMinecraft.McInstanceSelected.Info.HasOptiFine) // #305
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 18 &&
+                     ModInstanceList.McMcInstanceSelected.Info.vanilla.Major < 19 &&
+                     ModInstanceList.McMcInstanceSelected.Info.HasOptiFine) // #305
             {
                 // 1.18：若安装了 OptiFine，最高 Java 18
                 maxVer = new Version(1, 18, 999, 999) < maxVer ? new Version(1, 18, 999, 999) : maxVer;
@@ -1920,10 +1950,10 @@ public static class ModLaunch
         }
 
         // Cleanroom 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasCleanroom)
+        if (ModInstanceList.McMcInstanceSelected.Info.HasCleanroom)
         {
-            if (!Version.TryParse(ModMinecraft.McInstanceSelected.Info.Cleanroom.Split('-')[0], out Version cleanroomVersion))
-                throw new FormatException("无法解析 Cleanroom 版本号：" + ModMinecraft.McInstanceSelected.Info.Cleanroom);
+            if (!Version.TryParse(ModInstanceList.McMcInstanceSelected.Info.Cleanroom.Split('-')[0], out Version cleanroomVersion))
+                throw new FormatException("无法解析 Cleanroom 版本号：" + ModInstanceList.McMcInstanceSelected.Info.Cleanroom);
             if (cleanroomVersion < new Version(0, 5, 0, 0))
             {
                 if (ModBase.modeDebug) ModBase.Log("[Launch] [Debug] Cleanroom 版本低于 0.5，要求至少 Java 21");
@@ -1937,19 +1967,19 @@ public static class ModLaunch
         }
 
         // Fabric 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasFabric && ModMinecraft.McInstanceSelected.Info.Valid) // 不管非标准版本
+        if (ModInstanceList.McMcInstanceSelected.Info.HasFabric && ModInstanceList.McMcInstanceSelected.Info.Valid) // 不管非标准版本
         {
-            if (ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 15 &&
-                ModMinecraft.McInstanceSelected.Info.vanilla.Major <= 16)
+            if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 15 &&
+                ModInstanceList.McMcInstanceSelected.Info.vanilla.Major <= 16)
                 // 1.15 - 1.16：Java 8+
                 minVer = new Version(1, 8, 0, 0) > minVer ? new Version(1, 8, 0, 0) : minVer;
-            else if (ModMinecraft.McInstanceSelected.Info.vanilla.Major >= 18)
+            else if (ModInstanceList.McMcInstanceSelected.Info.vanilla.Major >= 18)
                 // 1.18+：Java 17+
                 minVer = new Version(1, 17, 0, 0) > minVer ? new Version(1, 17, 0, 0) : minVer;
         }
 
         // LiteLoader 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasLiteLoader && ModMinecraft.McInstanceSelected.Info.Valid)
+        if (ModInstanceList.McMcInstanceSelected.Info.HasLiteLoader && ModInstanceList.McMcInstanceSelected.Info.Valid)
         {
             // 最高 Java 8
             if (ModBase.modeDebug)
@@ -1958,7 +1988,7 @@ public static class ModLaunch
         }
 
         // LabyMod 检测
-        if (ModMinecraft.McInstanceSelected.Info.HasLabyMod)
+        if (ModInstanceList.McMcInstanceSelected.Info.HasLabyMod)
         {
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] LabyMod 要求至少 Java 21");
@@ -1967,9 +1997,9 @@ public static class ModLaunch
         }
 
         // JSON 中要求的版本
-        if (ModMinecraft.McInstanceSelected.JsonObject["javaVersion"] is not null)
+        if (ModInstanceList.McMcInstanceSelected.JsonObject["javaVersion"] is not null)
         {
-            var majorVersion = ModBase.Val(ModMinecraft.McInstanceSelected.JsonObject["javaVersion"]["majorVersion"]);
+            var majorVersion = ModBase.Val(ModInstanceList.McMcInstanceSelected.JsonObject["javaVersion"]["majorVersion"]);
             if (ModBase.modeDebug)
                 ModBase.Log("[Launch] [Debug] JSON 中参数要求至少 Java " + majorVersion);
             if (majorVersion <= 8d)
@@ -1989,7 +2019,7 @@ public static class ModLaunch
         {
             // 选择 Java
             McLaunchLog("Java 版本需求：最低 " + minVer + "，最高 " + maxVer);
-            mcLaunchJavaSelected = ModJava.JavaSelect("$$", minVer, maxVer, ModMinecraft.McInstanceSelected);
+            mcLaunchJavaSelected = ModJava.JavaSelect("$$", minVer, maxVer, ModInstanceList.McMcInstanceSelected);
             if (task.IsAborted)
                 return;
             if (mcLaunchJavaSelected is not null)
@@ -2009,7 +2039,7 @@ public static class ModLaunch
             }
             else if (maxVer < new Version(1, 8))
             {
-                if (ModMinecraft.McInstanceSelected.Info.HasForge)
+                if (ModInstanceList.McMcInstanceSelected.Info.HasForge)
                     ModMain.MyMsgBox(
                         Lang.Text("Minecraft.Launch.Java.NeedLegacyJavaFixerOrJava7"),
                         Lang.Text("Minecraft.Launch.Java.NotFound.Title"));
@@ -2057,7 +2087,7 @@ public static class ModLaunch
             }
 
             // 检查下载结果
-            mcLaunchJavaSelected = ModJava.JavaSelect("$$", minVer, maxVer, ModMinecraft.McInstanceSelected);
+            mcLaunchJavaSelected = ModJava.JavaSelect("$$", minVer, maxVer, ModInstanceList.McMcInstanceSelected);
             if (task.IsAborted)
                 return;
             if (mcLaunchJavaSelected is not null)
@@ -2066,7 +2096,7 @@ public static class ModLaunch
             }
             else
             {
-                ModMain.Hint(Lang.Text("Minecraft.Launch.Error.NoJava"), ModMain.HintType.Critical);
+                HintService.Hint(Lang.Text("Minecraft.Launch.Error.NoJava"), HintType.Error);
                 throw new Exception("$$");
             }
         }
@@ -2078,7 +2108,7 @@ public static class ModLaunch
 
     internal static void SecretLaunchJvmArgs(ref List<string> dataList)
     {
-        var dataJvmCustom = Config.Instance.JvmArgs[ModMinecraft.McInstanceSelected?.PathInstance];
+        var dataJvmCustom = Config.Instance.JvmArgs[ModInstanceList.McMcInstanceSelected?.PathInstance];
         dataList.Insert(0,
             string.IsNullOrEmpty(dataJvmCustom)
                 ? Config.Launch.JvmArgs
@@ -2101,9 +2131,14 @@ public static class ModLaunch
 
         double availableGb = KernelInterop.GetAvailablePhysicalMemoryBytes() / 1073741824.0;
         ModLaunch.McLaunchLog($"当前剩余内存：{availableGb.ToString("N1", CultureInfo.InvariantCulture)}G");
-        double totalRamMb = PageInstanceSetup.GetRam(ModMinecraft.McInstanceSelected) * 1024d;
+        double totalRamMb = PageInstanceSetup.GetRam(ModInstanceList.McMcInstanceSelected) * 1024d;
+        var maxHeapArg = Math.Floor(totalRamMb).ToString(CultureInfo.InvariantCulture);
         dataList.Add("-Xmn" + Math.Floor(totalRamMb * 0.15).ToString(CultureInfo.InvariantCulture) + "m");
-        dataList.Add("-Xmx" + Math.Floor(totalRamMb).ToString(CultureInfo.InvariantCulture) + "m");
+        dataList.Add("-Xmx" + maxHeapArg + "m");
+        // #3282: 固定堆大小时追加 -Xms 使其等于 -Xmx（复用同一数值以保持一致），隐式禁用内存归还降低延迟抖动、利于 ZGC。
+        // 若 dataList 中已存在 -Xms（例如用户自定义参数已设）则跳过，避免重复/冲突。
+        if (Config.Launch.LockMemory && !dataList.Any(d => d.Contains("-Xms", StringComparison.OrdinalIgnoreCase)))
+            dataList.Add("-Xms" + maxHeapArg + "m");
         if (!dataList.Any(d => d.Contains("-Dlog4j2.formatMsgNoLookups=true")))
             dataList.Add("-Dlog4j2.formatMsgNoLookups=true");
     }
@@ -2112,7 +2147,7 @@ public static class ModLaunch
     {
         private readonly List<string> _features = new();
 
-        public LaunchArgument(ModMinecraft.Instance minecraft)
+        public LaunchArgument(McInstance minecraft)
         {
             var curArgu = string.Empty;
             if (minecraft.IsOldJson)
@@ -2239,23 +2274,28 @@ public static class ModLaunch
     }
 
     /// <summary>
-    ///     判断是否使用 RetroWrapper。
-    ///     TODO: 在更换为 Drop 比较版本号后可能不准确，需要测试确认。
+    /// 判断是否使用 LegacyFix。
     /// </summary>
-    private static bool McLaunchNeedsRetroWrapper(ModMinecraft.Instance mc)
+    private static bool McLaunchNeedsLegacyFix(McInstance mc)
     {
-        return (mc.releaseTime >= new DateTime(2013, 6, 25) && mc.Info.Drop == 99) ||
-               (mc.Info.Drop < 60 && mc.Info.Drop != 99 &&
-                !Config.Launch.DisableRw &&
-                !Config.Instance.DisableRw[mc.PathInstance]); // <1.6
+        if (Config.Launch.DisableLF || Config.Instance.DisableLF[mc.PathInstance])
+        {
+            ModBase.Log("[Launch] LegacyFix 已被禁用");
+            return false;
+        }
+        if (mc.releaseTime < new DateTime(2013, 6, 25) && mc.releaseTime.Year > 2000)
+        {
+            return true;
+        }
+        return false;
     }
 
     /// <summary>
     /// 获取实例所依赖的 LWJGL 版本
     /// </summary>
-    private static string McLaunchGetLwjglVersion(ModMinecraft.Instance mc)
+    private static string McLaunchGetLwjglVersion(McInstance mc)
     {
-        foreach (ModMinecraft.McLibToken library in ModMinecraft.McLibListGet(mc, false))
+        foreach (ModLibrary.McLibToken library in ModLibrary.McLibListGet(mc, false))
         {
             if (string.IsNullOrWhiteSpace(library.OriginalName))
                 continue;
@@ -2275,7 +2315,7 @@ public static class ModLaunch
     /// <summary>
     /// 判断是否启用了针对 Minecraft 26.1 的性能问题补丁
     /// </summary>
-    private static bool McLaunchUsesLwjglUnsafeAgent(ModMinecraft.Instance mc)
+    private static bool McLaunchUsesLwjglUnsafeAgent(McInstance mc)
     {
         if (McLaunchGetLwjglVersion(mc) == "3.4.1")
         {
@@ -2291,40 +2331,40 @@ public static class ModLaunch
     }
 
     // 主方法，合并 Jvm、Game、Replace 三部分的参数数据
-    private static void McLaunchArgumentMain(ModLoader.LoaderTask<string, List<ModMinecraft.McLibToken>> loader)
+    private static void McLaunchArgumentMain(ModLoader.LoaderTask<string, List<ModLibrary.McLibToken>> loader)
     {
         McLaunchLog("开始获取 Minecraft 启动参数");
         // 获取基准字符串与参数信息
         string arguments;
-        if (ModMinecraft.McInstanceSelected.JsonObject["arguments"] is not null &&
-            ModMinecraft.McInstanceSelected.JsonObject["arguments"]["jvm"] is not null)
+        if (ModInstanceList.McMcInstanceSelected.JsonObject["arguments"] is not null &&
+            ModInstanceList.McMcInstanceSelected.JsonObject["arguments"]["jvm"] is not null)
         {
             McLaunchLog("获取新版 JVM 参数");
-            arguments = McLaunchArgumentsJvmNew(ModMinecraft.McInstanceSelected);
+            arguments = McLaunchArgumentsJvmNew(ModInstanceList.McMcInstanceSelected);
             McLaunchLog("新版 JVM 参数获取成功：");
             McLaunchLog(arguments);
         }
         else
         {
             McLaunchLog("获取旧版 JVM 参数");
-            arguments = McLaunchArgumentsJvmOld(ModMinecraft.McInstanceSelected);
+            arguments = McLaunchArgumentsJvmOld(ModInstanceList.McMcInstanceSelected);
             McLaunchLog("旧版 JVM 参数获取成功：");
             McLaunchLog(arguments);
         }
 
         if (!string.IsNullOrEmpty(
-                (string)ModMinecraft.McInstanceSelected.JsonObject["minecraftArguments"])) // 有的实例 JSON 中是空字符串
+                (string)ModInstanceList.McMcInstanceSelected.JsonObject["minecraftArguments"])) // 有的实例 JSON 中是空字符串
         {
             McLaunchLog("获取旧版 Game 参数");
-            arguments += " " + McLaunchArgumentsGameOld(ModMinecraft.McInstanceSelected);
+            arguments += " " + McLaunchArgumentsGameOld(ModInstanceList.McMcInstanceSelected);
             McLaunchLog("旧版 Game 参数获取成功");
         }
 
-        if (ModMinecraft.McInstanceSelected.JsonObject["arguments"] is not null &&
-            ModMinecraft.McInstanceSelected.JsonObject["arguments"]["game"] is not null)
+        if (ModInstanceList.McMcInstanceSelected.JsonObject["arguments"] is not null &&
+            ModInstanceList.McMcInstanceSelected.JsonObject["arguments"]["game"] is not null)
         {
             McLaunchLog("获取新版 Game 参数");
-            arguments += " " + McLaunchArgumentsGameNew(ModMinecraft.McInstanceSelected);
+            arguments += " " + McLaunchArgumentsGameNew(ModInstanceList.McMcInstanceSelected);
             McLaunchLog("新版 Game 参数获取成功");
         }
 
@@ -2349,10 +2389,10 @@ public static class ModLaunch
         foreach (var arg in currentLaunchOptions.ExtraArgs)
             arguments += " " + arg.Trim();
         // 自定义参数
-        var argumentGame = Config.Instance.GameArgs[ModMinecraft.McInstanceSelected?.PathInstance];
+        var argumentGame = Config.Instance.GameArgs[ModInstanceList.McMcInstanceSelected?.PathInstance];
         arguments = arguments + " " + (string.IsNullOrEmpty(argumentGame) ? Config.Launch.GameArgs : argumentGame);
         // 替换参数
-        var replaceArguments = McLaunchArgumentsReplace(ModMinecraft.McInstanceSelected, ref loader);
+        var replaceArguments = McLaunchArgumentsReplace(ModInstanceList.McMcInstanceSelected, ref loader);
         if (string.IsNullOrWhiteSpace(replaceArguments["${version_type}"]))
         {
             // 若自定义信息为空，则去掉该部分
@@ -2377,11 +2417,11 @@ public static class ModLaunch
         if (worldName is not null) finalArguments += $" --quickPlaySingleplayer \"{worldName}\"";
         // 进服
         var server = string.IsNullOrEmpty(currentLaunchOptions.ServerIp)
-            ? Config.Instance.ServerToEnter[ModMinecraft.McInstanceSelected?.PathInstance]
+            ? Config.Instance.ServerToEnter[ModInstanceList.McMcInstanceSelected?.PathInstance]
             : currentLaunchOptions.ServerIp;
         if (string.IsNullOrWhiteSpace(worldName) && !string.IsNullOrWhiteSpace(server))
         {
-            if (ModMinecraft.McInstanceSelected.releaseTime > new DateTime(2023, 4, 4))
+            if (ModInstanceList.McMcInstanceSelected.releaseTime > new DateTime(2023, 4, 4))
             {
                 // QuickPlay
                 finalArguments += $" --quickPlayMultiplayer \"{server}\"";
@@ -2395,8 +2435,8 @@ public static class ModLaunch
                 else
                     // 不包含端口号
                     finalArguments += " --server " + server + " --port 25565";
-                if (ModMinecraft.McInstanceSelected.Info.HasOptiFine)
-                    ModMain.Hint(Lang.Text("Minecraft.Launch.Error.OptiFineAutoJoinWarning"), ModMain.HintType.Critical);
+                if (ModInstanceList.McMcInstanceSelected.Info.HasOptiFine)
+                    HintService.Hint(Lang.Text("Minecraft.Launch.Error.OptiFineAutoJoinWarning"), HintType.Error);
             }
         }
 
@@ -2407,14 +2447,14 @@ public static class ModLaunch
     }
 
     // Jvm 部分（第一段）
-    private static string McLaunchArgumentsJvmOld(ModMinecraft.Instance instance)
+    private static string McLaunchArgumentsJvmOld(McInstance instance)
     {
         // 存储以空格为间隔的启动参数列表
         var dataList = new List<string>();
 
         // 输出固定参数
         dataList.Add("-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump");
-        var argumentJvm = Config.Instance.JvmArgs[ModMinecraft.McInstanceSelected?.PathInstance];
+        var argumentJvm = Config.Instance.JvmArgs[ModInstanceList.McMcInstanceSelected?.PathInstance];
         if (string.IsNullOrEmpty(argumentJvm))
             argumentJvm = Config.Launch.JvmArgs;
         if (!argumentJvm.Contains("-Dlog4j2.formatMsgNoLookups=true"))
@@ -2422,11 +2462,15 @@ public static class ModLaunch
         argumentJvm = argumentJvm.Replace(" -XX:MaxDirectMemorySize=256M", ""); // #3511 的清理
         dataList.Insert(0, argumentJvm); // 可变 JVM 参数
         dataList.Add("-Xmn" +
-                     Math.Floor(PageInstanceSetup.GetRam(ModMinecraft.McInstanceSelected,
+                     Math.Floor(PageInstanceSetup.GetRam(ModInstanceList.McMcInstanceSelected,
                          !mcLaunchJavaSelected.Installation.Is64Bit) * 1024d * 0.15d) + "m");
-        dataList.Add("-Xmx" +
-                     Math.Floor(PageInstanceSetup.GetRam(ModMinecraft.McInstanceSelected,
-                         !mcLaunchJavaSelected.Installation.Is64Bit) * 1024d) + "m");
+        var maxHeapArg = Math.Floor(PageInstanceSetup.GetRam(ModInstanceList.McMcInstanceSelected,
+            !mcLaunchJavaSelected.Installation.Is64Bit) * 1024d);
+        dataList.Add("-Xmx" + maxHeapArg + "m");
+        // #3282: 固定堆大小时追加 -Xms 使其等于 -Xmx（复用同一数值以保持一致），隐式禁用内存归还降低延迟抖动、利于 ZGC。
+        // 若 dataList 中已存在 -Xms（例如用户自定义参数已设）则跳过，避免重复/冲突。
+        if (Config.Launch.LockMemory && !dataList.Any(d => d.Contains("-Xms", StringComparison.OrdinalIgnoreCase)))
+            dataList.Add("-Xms" + maxHeapArg + "m");
         dataList.Add("\"-Djava.library.path=" + GetNativesFolder() + "\"");
         dataList.Add("-cp ${classpath}"); // 把支持库添加进启动参数表
 
@@ -2457,7 +2501,7 @@ public static class ModLaunch
 
         if (Config.Instance.UseDebugLof4j2Config[instance.PathIndie])
         {
-            if (ModMinecraft.McInstanceSelected.releaseTime.Year >= 2017)
+            if (ModInstanceList.McMcInstanceSelected.releaseTime.Year >= 2017)
                 dataList.Insert(0, "-Dlog4j.configurationFile=\"" + LaunchEnvUtils.ExtractDebugLog4j2Config() + "\"");
             else
                 dataList.Insert(0,
@@ -2466,7 +2510,7 @@ public static class ModLaunch
 
         // 渲染器
         var renderer = 0;
-        var instanceRenderer = Config.Instance.Renderer[ModMinecraft.McInstanceSelected?.PathInstance];
+        var instanceRenderer = Config.Instance.Renderer[ModInstanceList.McMcInstanceSelected?.PathInstance];
         if (instanceRenderer != 0)
             renderer = instanceRenderer - 1;
         else
@@ -2492,12 +2536,29 @@ public static class ModLaunch
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Minecraft.Launch.Error.Proxy"), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Minecraft.Launch.Error.Proxy"),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Minecraft.Launch.Error.Proxy"));
             }
+
+        // 添加 LegacyFix 相关参数
+        if (McLaunchNeedsLegacyFix(instance))
+        {
+            var legacyFixPath = Path.Combine(ModBase.pathPure, "legacyfix.jar");
+            dataList.Add("-javaagent:\"" + legacyFixPath + "\"");
+
+            // Beta 1.6 以前版本需要添加的参数
+            if (instance.releaseTime < new DateTime(2011, 5, 25))
+            {
+                dataList.Add("-Djava.util.Arrays.useLegacyMergeSort=true");
+            }
+        }
 
         // 添加 Java Wrapper 作为主 Jar
         if (ModBase.IsUtf8CodePage() && !Config.Launch.DisableJlw &&
-            !Config.Instance.DisableJlw[ModMinecraft.McInstanceSelected?.PathInstance])
+            !Config.Instance.DisableJlw[ModInstanceList.McMcInstanceSelected?.PathInstance])
         {
             if (mcLaunchJavaSelected.Installation.MajorVersion >= 9)
                 dataList.Add("--add-exports cpw.mods.bootstraplauncher/cpw.mods.bootstraplauncher=ALL-UNNAMED");
@@ -2513,7 +2574,7 @@ public static class ModLaunch
         return dataList.Join(" ");
     }
 
-    private static string McLaunchArgumentsJvmNew(ModMinecraft.Instance instance)
+    private static string McLaunchArgumentsJvmNew(McInstance instance)
     {
         var dataList = new List<string>();
 
@@ -2530,7 +2591,7 @@ public static class ModLaunch
                         dataList.Add(subJson.ToString());
                     }
                     // 非字符串类型
-                    else if (ModMinecraft.McJsonRuleCheck(subJson["rules"]))
+                    else if (ModLibrary.McJsonRuleCheck(subJson["rules"]))
                     {
                         // 满足准则
                         if (subJson["value"].GetValueKind() == JsonValueKind.String)
@@ -2543,7 +2604,7 @@ public static class ModLaunch
             if (string.IsNullOrEmpty(currentInstance.InheritInstanceName))
                 break;
 
-            currentInstance = new ModMinecraft.Instance(currentInstance.InheritInstanceName);
+            currentInstance = new McInstance(currentInstance.InheritInstanceName);
         }
 
         // 内存、Log4j 防御参数等
@@ -2570,15 +2631,15 @@ public static class ModLaunch
         }
         
         // LWJGL Unsafe Agent
-        if (McLaunchUsesLwjglUnsafeAgent(ModMinecraft.McInstanceSelected))
+        if (McLaunchUsesLwjglUnsafeAgent(ModInstanceList.McMcInstanceSelected))
         {
-            ModBase.Log($"获取到的 LWJGL 版本：{McLaunchGetLwjglVersion(ModMinecraft.McInstanceSelected)}");
+            ModBase.Log($"获取到的 LWJGL 版本：{McLaunchGetLwjglVersion(ModInstanceList.McMcInstanceSelected)}");
             dataList.Insert(0, $"-javaagent:\"{ModBase.pathPure}lwjgl-unsafe-agent.jar\"");
         }
 
         if (Config.Instance.UseDebugLof4j2Config[instance.PathIndie])
         {
-            if (ModMinecraft.McInstanceSelected.releaseTime.Year >= 2017)
+            if (ModInstanceList.McMcInstanceSelected.releaseTime.Year >= 2017)
                 dataList.Insert(0, "-Dlog4j.configurationFile=\"" + LaunchEnvUtils.ExtractDebugLog4j2Config() + "\"");
             else
                 dataList.Insert(0,
@@ -2587,7 +2648,7 @@ public static class ModLaunch
 
         // 渲染器
         var renderer = 0;
-        var instanceRenderer = Config.Instance.Renderer[ModMinecraft.McInstanceSelected?.PathInstance];
+        var instanceRenderer = Config.Instance.Renderer[ModInstanceList.McMcInstanceSelected?.PathInstance];
         if (instanceRenderer != 0)
             renderer = instanceRenderer - 1;
         else
@@ -2613,16 +2674,16 @@ public static class ModLaunch
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Minecraft.Launch.Error.Proxy"), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Minecraft.Launch.Error.Proxy"),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Minecraft.Launch.Error.Proxy"));
             }
 
-        // 添加 RetroWrapper 相关参数
-        if (McLaunchNeedsRetroWrapper(instance))
-            // https://github.com/NeRdTheNed/RetroWrapper/wiki/RetroWrapper-flags
-            dataList.Add("-Dretrowrapper.doUpdateCheck=false");
         // 添加 Java Wrapper 作为主 Jar
         if (ModBase.IsUtf8CodePage() && !Config.Launch.DisableJlw &&
-            !Config.Instance.DisableJlw[ModMinecraft.McInstanceSelected?.PathInstance])
+            !Config.Instance.DisableJlw[ModInstanceList.McMcInstanceSelected?.PathInstance])
         {
             if (mcLaunchJavaSelected.Installation.MajorVersion >= 9)
                 dataList.Add("--add-exports cpw.mods.bootstraplauncher/cpw.mods.bootstraplauncher=ALL-UNNAMED");
@@ -2664,12 +2725,9 @@ public static class ModLaunch
     }
 
     // Game 部分（第二段）
-    private static string McLaunchArgumentsGameOld(ModMinecraft.Instance version)
+    private static string McLaunchArgumentsGameOld(McInstance version)
     {
         var dataList = new List<string>();
-
-        // 添加 RetroWrapper 相关参数
-        if (McLaunchNeedsRetroWrapper(version)) dataList.Add("--tweakClass com.zero.retrowrapper.RetroTweaker");
 
         // 本地化 Minecraft 启动信息
         var basicString = version.JsonObject["minecraftArguments"].ToString();
@@ -2713,7 +2771,7 @@ public static class ModLaunch
         return result;
     }
 
-    private static string McLaunchArgumentsGameNew(ModMinecraft.Instance instance)
+    private static string McLaunchArgumentsGameNew(McInstance instance)
     {
         string mcLaunchArgumentsGameNewRet = default;
         var dataList = new List<string>();
@@ -2731,7 +2789,7 @@ public static class ModLaunch
                         dataList.Add(subJson.ToString());
                     }
                     // 非字符串类型
-                    else if (ModMinecraft.McJsonRuleCheck(subJson["rules"]))
+                    else if (ModLibrary.McJsonRuleCheck(subJson["rules"]))
                     {
                         // 满足准则
                         if (subJson["value"].GetValueKind() == JsonValueKind.String)
@@ -2744,7 +2802,7 @@ public static class ModLaunch
             if (string.IsNullOrEmpty(currentInstance.InheritInstanceName))
                 break;
 
-            currentInstance = new ModMinecraft.Instance(currentInstance.InheritInstanceName);
+            currentInstance = new McInstance(currentInstance.InheritInstanceName);
         }
 
         // 将 "-XXX" 与后面 "XXX" 合并到一起
@@ -2805,27 +2863,27 @@ public static class ModLaunch
     }
 
     // 替换 Arguments
-    private static Dictionary<string, string> McLaunchArgumentsReplace(ModMinecraft.Instance instance,
-        ref ModLoader.LoaderTask<string, List<ModMinecraft.McLibToken>> loader)
+    private static Dictionary<string, string> McLaunchArgumentsReplace(McInstance instance,
+        ref ModLoader.LoaderTask<string, List<ModLibrary.McLibToken>> loader)
     {
         var gameArguments = new Dictionary<string, string>();
 
         // 基础参数
         gameArguments.Add("${classpath_separator}", ";");
         gameArguments.Add("${natives_directory}", ModBase.ShortenPath(GetNativesFolder()));
-        gameArguments.Add("${library_directory}", ModBase.ShortenPath(ModMinecraft.mcFolderSelected + "libraries"));
-        gameArguments.Add("${libraries_directory}", ModBase.ShortenPath(ModMinecraft.mcFolderSelected + "libraries"));
+        gameArguments.Add("${library_directory}", ModBase.ShortenPath(ModFolder.mcFolderSelected + "libraries"));
+        gameArguments.Add("${libraries_directory}", ModBase.ShortenPath(ModFolder.mcFolderSelected + "libraries"));
         gameArguments.Add("${launcher_name}", "PCLCE");
         gameArguments.Add("${launcher_version}", ModBase.versionCode.ToString());
         gameArguments.Add("${version_name}", instance.Name);
-        var argumentInfo = Config.Instance.TypeInfo[ModMinecraft.McInstanceSelected?.PathInstance];
+        var argumentInfo = Config.Instance.TypeInfo[ModInstanceList.McMcInstanceSelected?.PathInstance];
         gameArguments.Add("${version_type}",
             string.IsNullOrEmpty(argumentInfo)
                 ? Config.Launch.TypeInfo
                 : argumentInfo);
         gameArguments.Add("${game_directory}",
-            ModBase.ShortenPath(ModMinecraft.McInstanceSelected.PathIndie[..^1]));
-        gameArguments.Add("${assets_root}", ModBase.ShortenPath(ModMinecraft.mcFolderSelected + "assets"));
+            ModBase.ShortenPath(ModInstanceList.McMcInstanceSelected.PathIndie[..^1]));
+        gameArguments.Add("${assets_root}", ModBase.ShortenPath(ModFolder.mcFolderSelected + "assets"));
         gameArguments.Add("${user_properties}", "{}");
         gameArguments.Add("${auth_player_name}", mcLoginLoader.output.Name);
         gameArguments.Add("${auth_uuid}", mcLoginLoader.output.Uuid);
@@ -2861,10 +2919,10 @@ public static class ModLaunch
             }
         }
 
-        if (ModMinecraft.McInstanceSelected.Info.Drop <= 120 && mcLaunchJavaSelected.Installation.MajorVersion <= 8 &&
+        if (ModInstanceList.McMcInstanceSelected.Info.Drop <= 120 && mcLaunchJavaSelected.Installation.MajorVersion <= 8 &&
             mcLaunchJavaSelected.Installation.Version.Revision >= 200 &&
             mcLaunchJavaSelected.Installation.Version.Revision <= 321 &&
-            !ModMinecraft.McInstanceSelected.Info.HasOptiFine && !ModMinecraft.McInstanceSelected.Info.HasForge)
+            !ModInstanceList.McMcInstanceSelected.Info.HasOptiFine && !ModInstanceList.McMcInstanceSelected.Info.HasForge)
         {
             // 修复 #3463：1.12.2-，JRE 8u200~321 下窗口大小为设置大小的 DPI% 倍
             McLaunchLog($"已应用窗口大小过大修复（{mcLaunchJavaSelected.Installation.Version.Revision}）");
@@ -2877,28 +2935,27 @@ public static class ModLaunch
 
         // Assets 相关参数
         gameArguments.Add("${game_assets}",
-            ModBase.ShortenPath(ModMinecraft.mcFolderSelected +
+            ModBase.ShortenPath(ModFolder.mcFolderSelected +
                                 @"assets\virtual\legacy")); // 1.5.2 的 pre-1.6 资源索引应与 legacy 合并
-        gameArguments.Add("${assets_index_name}", ModMinecraft.McAssetsGetIndexName(instance));
+        gameArguments.Add("${assets_index_name}", ModAssets.McAssetsGetIndexName(instance));
 
         // 支持库参数
-        var libList = ModMinecraft.McLibListGet(instance, true);
+        var libList = ModLibrary.McLibListGet(instance, true);
         loader.output = libList;
         var cpStrings = new List<string>();
         string optiFineCp = null;
 
-        // RetroWrapper 释放
-        if (McLaunchNeedsRetroWrapper(instance))
+        // LegacyFix 释放
+        if (McLaunchNeedsLegacyFix(instance))
         {
-            var wrapperPath = ModMinecraft.mcFolderSelected + @"libraries\retrowrapper\RetroWrapper.jar";
+            var legacyFixPath = Path.Combine(ModBase.pathPure, "legacyfix.jar");
             try
             {
-                ModBase.WriteFile(wrapperPath, ModBase.GetResourceStream("Resources/retro-wrapper.jar"));
-                cpStrings.Add(wrapperPath);
+                ModBase.WriteFile(legacyFixPath, ModBase.GetResourceStream("Resources/legacyfix.jar"));
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, "RetroWrapper 释放失败");
+                ModBase.Log(ex, "LegacyFix 释放失败");
             }
         }
 
@@ -2921,7 +2978,7 @@ public static class ModLaunch
         {
             if (library.IsNatives)
                 continue;
-            if (ModMinecraft.McInstanceSelected.Info.HasCleanroom 
+            if (ModInstanceList.McMcInstanceSelected.Info.HasCleanroom 
                 && library.OriginalName is not null 
                 && (library.OriginalName.Contains("org.lwjgl.lwjgl:lwjgl:2.9.4") 
                     || library.OriginalName.Contains("net.java.dev.jna:platform:3.4.0")
@@ -2951,7 +3008,7 @@ public static class ModLaunch
 
     #region 解压 Natives
 
-    private static void McLaunchNatives(ModLoader.LoaderTask<List<ModMinecraft.McLibToken>, int> loader)
+    private static void McLaunchNatives(ModLoader.LoaderTask<List<ModLibrary.McLibToken>, int> loader)
     {
         // 创建文件夹
         var target = GetNativesFolder() + @"\";
@@ -3041,7 +3098,7 @@ public static class ModLaunch
     /// </summary>
     private static string GetNativesFolder()
     {
-        var result = Path.Combine(ModMinecraft.McInstanceSelected.PathInstance, ModMinecraft.McInstanceSelected.Name + "-natives");
+        var result = Path.Combine(ModInstanceList.McMcInstanceSelected.PathInstance, ModInstanceList.McMcInstanceSelected.Name + "-natives");
         if (SystemInfo.IsGBKEncoding || result.IsASCII())
             return result;
         result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "bin", "natives");
@@ -3082,7 +3139,11 @@ public static class ModLaunch
                 }
                 catch (Exception exx)
                 {
-                    ModBase.Log(exx, Lang.Text("Minecraft.Launch.Error.GpuSet"), ModBase.LogLevel.Hint);
+                    ModBase.Log(
+                        exx,
+                        Lang.Text("Minecraft.Launch.Error.GpuSet"),
+                        ModBase.LogLevel.Hint,
+                        userSummary: Lang.Text("Minecraft.Launch.Error.GpuSet"));
                 }
             }
         }
@@ -3095,7 +3156,7 @@ public static class ModLaunch
                 // 确保可用
                 if (mcLoginLoader.output.Type != "Microsoft")
                     break;
-                ModMinecraft.McFolderLauncherProfilesJsonCreate(ModMinecraft.mcFolderSelected);
+                ModFolder.McFolderLauncherProfilesJsonCreate(ModFolder.mcFolderSelected);
                 // 构建需要替换的 Json 对象
                 var replaceJsonString = @"
             {
@@ -3119,9 +3180,9 @@ public static class ModLaunch
                 // 更新文件
                 var profiles =
                     (JsonObject)ModBase.GetJson(
-                        ModBase.ReadFile(ModMinecraft.mcFolderSelected + "launcher_profiles.json"));
+                        ModBase.ReadFile(ModFolder.mcFolderSelected + "launcher_profiles.json"));
                 profiles.Merge(replaceJson);
-                ModBase.WriteFile(ModMinecraft.mcFolderSelected + "launcher_profiles.json", profiles.ToString(),
+                ModBase.WriteFile(ModFolder.mcFolderSelected + "launcher_profiles.json", profiles.ToString(),
                     encoding: Encoding.GetEncoding("GB18030"));
                 McLaunchLog("已更新 launcher_profiles.json");
             }
@@ -3130,8 +3191,8 @@ public static class ModLaunch
                 ModBase.Log(ex, "更新 launcher_profiles.json 失败，将在删除文件后重试");
                 try
                 {
-                    File.Delete(ModMinecraft.mcFolderSelected + "launcher_profiles.json");
-                    ModMinecraft.McFolderLauncherProfilesJsonCreate(ModMinecraft.mcFolderSelected);
+                    File.Delete(ModFolder.mcFolderSelected + "launcher_profiles.json");
+                    ModFolder.McFolderLauncherProfilesJsonCreate(ModFolder.mcFolderSelected);
                     // 构建需要替换的 Json 对象
                     var replaceJsonString = @"
                     {
@@ -3155,21 +3216,25 @@ public static class ModLaunch
                     // 更新文件
                     var profiles =
                         (JsonObject)ModBase.GetJson(
-                            ModBase.ReadFile(ModMinecraft.mcFolderSelected + "launcher_profiles.json"));
+                            ModBase.ReadFile(ModFolder.mcFolderSelected + "launcher_profiles.json"));
                     profiles.Merge(replaceJson);
-                    ModBase.WriteFile(ModMinecraft.mcFolderSelected + "launcher_profiles.json", profiles.ToString(),
+                    ModBase.WriteFile(ModFolder.mcFolderSelected + "launcher_profiles.json", profiles.ToString(),
                         encoding: Encoding.GetEncoding("GB18030"));
                     McLaunchLog("已在删除后更新 launcher_profiles.json");
                 }
                 catch (Exception exx)
                 {
-                    ModBase.Log(exx, "更新 launcher_profiles.json 失败", ModBase.LogLevel.Feedback);
+                    ModBase.Log(
+                        exx,
+                        "更新 launcher_profiles.json 失败",
+                        ModBase.LogLevel.Feedback,
+                        userSummary: Lang.Text("Minecraft.Launch.Error.UpdateProfilesFailed"));
                 }
             }
         } while (false);
 
         // 更新 options.txt
-        var setupFileAddress = Path.Combine(ModMinecraft.McInstanceSelected.PathIndie, "options.txt");
+        var setupFileAddress = Path.Combine(ModInstanceList.McMcInstanceSelected.PathIndie, "options.txt");
 
         // 辅助切换游戏语言
         if (Config.Tool.AutoChangeLanguage)
@@ -3177,7 +3242,7 @@ public static class ModLaunch
             if (!File.Exists(setupFileAddress))
             {
                 // Yosbr Mod 兼容（#2385）：https://www.curseforge.com/minecraft/mc-mods/yosbr
-                var yosbrFileAddress = Path.Combine(ModMinecraft.McInstanceSelected.PathIndie, "config", "yosbr", "options.txt");
+                var yosbrFileAddress = Path.Combine(ModInstanceList.McMcInstanceSelected.PathIndie, "config", "yosbr", "options.txt");
                 if (File.Exists(yosbrFileAddress))
                 {
                     McLaunchLog("将修改 Yosbr Mod 中的 options.txt");
@@ -3196,10 +3261,10 @@ public static class ModLaunch
                 // 1.13+    ：zh_cn 时正常，zh_CN 时自动切换为英文
                 var currentLang = ModBase.ReadIni(setupFileAddress, "lang", "none");
                 var isLanguageUnconfigured = string.Equals(currentLang, "none", StringComparison.OrdinalIgnoreCase);
-                var hasExistingSaves = Directory.Exists(Path.Combine(ModMinecraft.McInstanceSelected.PathIndie, "saves"));
+                var hasExistingSaves = Directory.Exists(Path.Combine(ModInstanceList.McMcInstanceSelected.PathIndie, "saves"));
                 var shouldUseDefault = isLanguageUnconfigured || !hasExistingSaves;
                 var requiredLang = _ResolveMinecraftLanguage(currentLang, shouldUseDefault,
-                    ModMinecraft.McInstanceSelected.releaseTime);
+                    ModInstanceList.McMcInstanceSelected.releaseTime);
 
                 if (currentLang == requiredLang)
                 {
@@ -3221,7 +3286,11 @@ public static class ModLaunch
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, "更新 options.txt 失败", ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    "更新 options.txt 失败",
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Minecraft.Launch.Error.UpdateOptionsFailed"));
             }
         }
 
@@ -3302,7 +3371,7 @@ public static class ModLaunch
         var customCommandGlobal = Config.Launch.PreLaunchCommand;
         if (!string.IsNullOrEmpty(customCommandGlobal))
             customCommandGlobal = ArgumentReplace(customCommandGlobal, true);
-        var customCommandVersion = Config.Instance.PreLaunchCommand[ModMinecraft.McInstanceSelected?.PathInstance];
+        var customCommandVersion = Config.Instance.PreLaunchCommand[ModInstanceList.McMcInstanceSelected?.PathInstance];
         if (!string.IsNullOrEmpty(customCommandVersion))
             customCommandVersion = ArgumentReplace(customCommandVersion, true);
 
@@ -3311,14 +3380,14 @@ public static class ModLaunch
         {
             var cmdString =
                 $"{(mcLaunchJavaSelected.Installation.MajorVersion > 8 ? "chcp 65001>nul" + "\r\n" : "")}" +
-                "@echo off" + "\r\n" + $"title 启动 - {ModMinecraft.McInstanceSelected.Name}" +
+                "@echo off" + "\r\n" + $"title 启动 - {ModInstanceList.McMcInstanceSelected.Name}" +
                 "\r\n" + "echo 游戏正在启动，请稍候。" + "\r\n" +
-                $"cd /D \"{ModBase.ShortenPath(ModMinecraft.McInstanceSelected.PathIndie)}\"" + "\r\n" +
+                $"cd /D \"{ModBase.ShortenPath(ModInstanceList.McMcInstanceSelected.PathIndie)}\"" + "\r\n" +
                 customCommandGlobal + "\r\n" + customCommandVersion + "\r\n" +
                 $"\"{mcLaunchJavaSelected.Installation.JavaExePath}\" {mcLaunchArgument}" + "\r\n" +
                 "echo 游戏已退出。" + "\r\n" + "pause";
             ModBase.WriteFile(currentLaunchOptions.SaveBatch ?? ModBase.exePath + @"PCL\LatestLaunch.bat",
-                ModMinecraft.FilterAccessToken(cmdString, 'F'),
+                McLogFilter.FilterAccessToken(cmdString, 'F'),
                 encoding: mcLaunchJavaSelected.Installation.MajorVersion > 8 ? Encoding.UTF8 : Encoding.Default);
             if (currentLaunchOptions.SaveBatch is not null)
             {
@@ -3345,7 +3414,7 @@ public static class ModLaunch
             {
                 customProcess.StartInfo.FileName = "cmd.exe";
                 customProcess.StartInfo.Arguments = "/c \"" + customCommandGlobal + "\"";
-                customProcess.StartInfo.WorkingDirectory = ModBase.ShortenPath(ModMinecraft.mcFolderSelected);
+                customProcess.StartInfo.WorkingDirectory = ModBase.ShortenPath(ModFolder.mcFolderSelected);
                 customProcess.StartInfo.UseShellExecute = false;
                 customProcess.StartInfo.CreateNoWindow = true;
                 customProcess.Start();
@@ -3355,7 +3424,11 @@ public static class ModLaunch
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Minecraft.Launch.Error.CustomCommand"), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Minecraft.Launch.Error.CustomCommand"),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Minecraft.Launch.Error.CustomCommand"));
             }
             finally
             {
@@ -3375,17 +3448,21 @@ public static class ModLaunch
             {
                 customProcess.StartInfo.FileName = "cmd.exe";
                 customProcess.StartInfo.Arguments = "/c \"" + customCommandVersion + "\"";
-                customProcess.StartInfo.WorkingDirectory = ModBase.ShortenPath(ModMinecraft.mcFolderSelected);
+                customProcess.StartInfo.WorkingDirectory = ModBase.ShortenPath(ModFolder.mcFolderSelected);
                 customProcess.StartInfo.UseShellExecute = false;
                 customProcess.StartInfo.CreateNoWindow = true;
                 customProcess.Start();
-                if (Config.Instance.PreLaunchCommandWait[ModMinecraft.McInstanceSelected?.PathInstance])
+                if (Config.Instance.PreLaunchCommandWait[ModInstanceList.McMcInstanceSelected?.PathInstance])
                     while (!customProcess.HasExited && !loader.IsAborted)
                         Thread.Sleep(10);
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Minecraft.Launch.Error.CustomCommand"), ModBase.LogLevel.Hint);
+                ModBase.Log(
+                    ex,
+                    Lang.Text("Minecraft.Launch.Error.CustomCommand"),
+                    ModBase.LogLevel.Hint,
+                    userSummary: Lang.Text("Minecraft.Launch.Error.CustomCommand"));
             }
             finally
             {
@@ -3413,10 +3490,10 @@ public static class ModLaunch
         var paths = new List<string>(startInfo.EnvironmentVariables["Path"].Split(";"));
         paths.Add(ModBase.ShortenPath(mcLaunchJavaSelected.Installation.JavaFolder));
         startInfo.EnvironmentVariables["Path"] = paths.Distinct().ToList().Join(";");
-        startInfo.EnvironmentVariables["appdata"] = ModBase.ShortenPath(ModMinecraft.mcFolderSelected);
+        startInfo.EnvironmentVariables["appdata"] = ModBase.ShortenPath(ModFolder.mcFolderSelected);
 
         // 设置其他参数
-        startInfo.WorkingDirectory = ModBase.ShortenPath(ModMinecraft.McInstanceSelected.PathIndie);
+        startInfo.WorkingDirectory = ModBase.ShortenPath(ModInstanceList.McMcInstanceSelected.PathIndie);
         startInfo.UseShellExecute = false;
         startInfo.RedirectStandardOutput = true;
         startInfo.RedirectStandardError = true;
@@ -3466,7 +3543,11 @@ public static class ModLaunch
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Minecraft.Launch.Error.PrioritySet"), ModBase.LogLevel.Feedback);
+            ModBase.Log(
+                ex,
+                Lang.Text("Minecraft.Launch.Error.PrioritySet"),
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Minecraft.Launch.Error.PrioritySet"));
         }
     }
 
@@ -3477,22 +3558,22 @@ public static class ModLaunch
         McLaunchLog("~ 基础参数 ~");
         McLaunchLog("PCL 版本：" + ModBase.versionBaseName + " (" + ModBase.versionCode + ")");
         McLaunchLog(
-            $"游戏版本：{ModMinecraft.McInstanceSelected.Info.VanillaName}（{ModMinecraft.McInstanceSelected.Info.vanilla}，Drop {ModMinecraft.McInstanceSelected.Info.Drop}{(ModMinecraft.McInstanceSelected.Info.Reliable ? "" : "，无法完全确定")}）");
-        McLaunchLog("资源版本：" + ModMinecraft.McAssetsGetIndexName(ModMinecraft.McInstanceSelected));
-        McLaunchLog("实例继承：" + (string.IsNullOrEmpty(ModMinecraft.McInstanceSelected.InheritInstanceName)
+            $"游戏版本：{ModInstanceList.McMcInstanceSelected.Info.VanillaName}（{ModInstanceList.McMcInstanceSelected.Info.vanilla}，Drop {ModInstanceList.McMcInstanceSelected.Info.Drop}{(ModInstanceList.McMcInstanceSelected.Info.Reliable ? "" : "，无法完全确定")}）");
+        McLaunchLog("资源版本：" + ModAssets.McAssetsGetIndexName(ModInstanceList.McMcInstanceSelected));
+        McLaunchLog("实例继承：" + (string.IsNullOrEmpty(ModInstanceList.McMcInstanceSelected.InheritInstanceName)
             ? "无"
-            : ModMinecraft.McInstanceSelected.InheritInstanceName));
-        var launchRamGb = PageInstanceSetup.GetRam(ModMinecraft.McInstanceSelected,
+            : ModInstanceList.McMcInstanceSelected.InheritInstanceName));
+        var launchRamGb = PageInstanceSetup.GetRam(ModInstanceList.McMcInstanceSelected,
             !mcLaunchJavaSelected.Installation.Is64Bit);
         McLaunchLog("分配的内存：" +
-                    launchRamGb.ToString("N1", CultureInfo.InvariantCulture) + " GB（" +
-                    Math.Round(launchRamGb * 1024d).ToString("N0", CultureInfo.InvariantCulture) + " MB）");
-        McLaunchLog("MC 文件夹：" + ModMinecraft.mcFolderSelected);
-        McLaunchLog("实例文件夹：" + ModMinecraft.McInstanceSelected.PathInstance);
-        McLaunchLog("版本隔离：" + ((ModMinecraft.McInstanceSelected.PathIndie ?? "") ==
-                               (ModMinecraft.McInstanceSelected.PathInstance ?? "")));
-        McLaunchLog("HMCL 格式：" + ModMinecraft.McInstanceSelected.IsHmclFormatJson);
-        McLaunchLog("Java 信息：" + (mcLaunchJavaSelected is not null ? mcLaunchJavaSelected.ToString : "无可用 Java"));
+                    launchRamGb.ToString("N1", CultureInfo.InvariantCulture) + " GiB（" +
+                    Math.Round(launchRamGb * 1024d).ToString("N0", CultureInfo.InvariantCulture) + " MiB）");
+        McLaunchLog("MC 文件夹：" + ModFolder.mcFolderSelected);
+        McLaunchLog("实例文件夹：" + ModInstanceList.McMcInstanceSelected.PathInstance);
+        McLaunchLog("版本隔离：" + ((ModInstanceList.McMcInstanceSelected.PathIndie ?? "") ==
+                               (ModInstanceList.McMcInstanceSelected.PathInstance ?? "")));
+        McLaunchLog("HMCL 格式：" + ModInstanceList.McMcInstanceSelected.IsHmclFormatJson);
+        McLaunchLog("Java 信息：" + mcLaunchJavaSelected.Installation);
         // McLaunchLog("环境变量：" & If(McLaunchJavaSelected IsNot Nothing, If(McLaunchJavaSelected.HasEnvironment, "已设置", "未设置"), "未设置"))
         McLaunchLog("Natives 文件夹：" + GetNativesFolder());
         McLaunchLog("");
@@ -3505,9 +3586,9 @@ public static class ModLaunch
         McLaunchLog("");
 
         // 获取窗口标题
-        var windowTitle = Config.Instance.Title[ModMinecraft.McInstanceSelected?.PathInstance];
+        var windowTitle = Config.Instance.Title[ModInstanceList.McMcInstanceSelected?.PathInstance];
         if (string.IsNullOrEmpty(windowTitle) &&
-            !Config.Instance.UseGlobalTitle[ModMinecraft.McInstanceSelected?.PathInstance])
+            !Config.Instance.UseGlobalTitle[ModInstanceList.McMcInstanceSelected?.PathInstance])
             windowTitle = Config.Launch.Title;
         windowTitle = ArgumentReplace(windowTitle, false);
 
@@ -3515,7 +3596,7 @@ public static class ModLaunch
         var jStackPath = Path.Combine(mcLaunchJavaSelected.Installation.JavaFolder, "jstack.exe");
 
         // 初始化等待
-        var watcher = new ModWatcher.Watcher(loader, ModMinecraft.McInstanceSelected, windowTitle,
+        var watcher = new ModWatcher.Watcher(loader, ModInstanceList.McMcInstanceSelected, windowTitle,
             File.Exists(jStackPath) ? jStackPath : "", currentLaunchOptions.IsTest);
         mcLaunchWatcher = watcher;
 
@@ -3596,8 +3677,8 @@ public static class ModLaunch
         // 启动计数
         States.System.LaunchCount += 1;
 
-        States.Instance.LaunchCount[ModMinecraft.McInstanceSelected.PathInstance] =
-            States.Instance.LaunchCount[ModMinecraft.McInstanceSelected.PathInstance] + 1;
+        States.Instance.LaunchCount[ModInstanceList.McMcInstanceSelected.PathInstance] =
+            States.Instance.LaunchCount[ModInstanceList.McMcInstanceSelected.PathInstance] + 1;
     }
 
     /// <summary>
@@ -3638,19 +3719,19 @@ public static class ModLaunch
 
         // Minecraft
         text = text.Replace("{java}", replacer(mcLaunchJavaSelected?.Installation.JavaFolder));
-        text = text.Replace("{minecraft}", replacer(ModMinecraft.mcFolderSelected));
-        if (ModMinecraft.McInstanceSelected?.IsLoaded == true)
+        text = text.Replace("{minecraft}", replacer(ModFolder.mcFolderSelected));
+        if (ModInstanceList.McMcInstanceSelected?.IsLoaded == true)
         {
-            text = text.Replace("{version_path}", replacer(ModMinecraft.McInstanceSelected.PathInstance));
-            text = text.Replace("{verpath}", replacer(ModMinecraft.McInstanceSelected.PathInstance));
-            text = text.Replace("{version_indie}", replacer(ModMinecraft.McInstanceSelected.PathIndie));
-            text = text.Replace("{verindie}", replacer(ModMinecraft.McInstanceSelected.PathIndie));
-            text = text.Replace("{name}", replacer(ModMinecraft.McInstanceSelected.Name));
+            text = text.Replace("{version_path}", replacer(ModInstanceList.McMcInstanceSelected.PathInstance));
+            text = text.Replace("{verpath}", replacer(ModInstanceList.McMcInstanceSelected.PathInstance));
+            text = text.Replace("{version_indie}", replacer(ModInstanceList.McMcInstanceSelected.PathIndie));
+            text = text.Replace("{verindie}", replacer(ModInstanceList.McMcInstanceSelected.PathIndie));
+            text = text.Replace("{name}", replacer(ModInstanceList.McMcInstanceSelected.Name));
             if (new[] { "unknown", "old", "pending" }.Contains(
-                    ModMinecraft.McInstanceSelected.Info.VanillaName.ToLower()))
-                text = text.Replace("{version}", replacer(ModMinecraft.McInstanceSelected.Name));
+                    ModInstanceList.McMcInstanceSelected.Info.VanillaName.ToLower()))
+                text = text.Replace("{version}", replacer(ModInstanceList.McMcInstanceSelected.Name));
             else
-                text = text.Replace("{version}", replacer(ModMinecraft.McInstanceSelected.Info.VanillaName));
+                text = text.Replace("{version}", replacer(ModInstanceList.McMcInstanceSelected.Info.VanillaName));
         }
         else
         {
