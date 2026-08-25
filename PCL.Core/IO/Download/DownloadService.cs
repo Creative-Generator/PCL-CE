@@ -29,23 +29,11 @@ public sealed class DownloadService : GeneralService
     private static Channel<DownloadChunk> _chunkChannel = null!;
     private static SemaphoreSlim _connectionSemaphore = null!;
     private static TokenBucketRateLimiter? _rateLimiter;
-    
+
     /// <summary>
-    /// 并发数。
+    /// DownloadService 的设置项。
     /// </summary>
-    public static int MaxConcurrency { get; set; } = 64;
-    /// <summary>
-    /// 缓冲区大小。
-    /// </summary>
-    public static int BufferSize { get; set; } = 80 * 1024;
-    /// <summary>
-    /// 块下载回调的报告阈值。
-    /// </summary>
-    public static int ChunkReportThreshold { get; set; } = 64 * 1024;
-    /// <summary>
-    /// 限制全局每秒下载最大千字节数。默认为 <c>null</c> ，即不限制。
-    /// </summary>
-    public static int? KilobytesPerSecond { get; set; } = null;
+    public static DownloadServiceOptions Options { get; set; } = new DownloadServiceOptions();
 
     private void _Initialize()
     {
@@ -53,11 +41,11 @@ public sealed class DownloadService : GeneralService
         _chunkChannel = Channel.CreateUnbounded<DownloadChunk>();
         
         // 初始化控制并发的信号量
-        _connectionSemaphore = new SemaphoreSlim(MaxConcurrency, MaxConcurrency);
+        _connectionSemaphore = new SemaphoreSlim(Options.MaxConcurrency, Options.MaxConcurrency);
         
-        if (KilobytesPerSecond > 0)
+        if (Options.KilobytesPerSecond > 0)
         {
-            var kilobytesPerSecond = KilobytesPerSecond.Value;
+            var kilobytesPerSecond = Options.KilobytesPerSecond.Value;
 
             _rateLimiter = new TokenBucketRateLimiter(new TokenBucketRateLimiterOptions
             {
@@ -127,7 +115,7 @@ public sealed class DownloadService : GeneralService
             await using var stream = await response.Content.ReadAsStreamAsync(chunk.CancellationToken);
 
             // 获取缓冲区
-            var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+            var buffer = ArrayPool<byte>.Shared.Rent(Options.BufferSize);
 
             // 单块的限速设置
             TokenBucketRateLimiter? chunkRateLimiter = null;
@@ -178,7 +166,7 @@ public sealed class DownloadService : GeneralService
                     downloaded += read;
 
                     // 判断是否达到阈值
-                    if (downloaded - lastReported >= ChunkReportThreshold)
+                    if (downloaded - lastReported >= Options.ChunkReportThreshold)
                     {
                         lastReported = downloaded;
 
