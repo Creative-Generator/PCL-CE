@@ -102,4 +102,9 @@ public sealed class WpfAnimatable(DependencyObject owner, DependencyProperty? pr
 
         Owner.SetValue(Property, value!);
     }
+
+    public override string ToString()
+    {
+        return $"WpfAnimatable: {Owner.GetType().Name}.{Property?.Name}";
+    }
 }

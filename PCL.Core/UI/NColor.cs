@@ -183,6 +183,11 @@ public struct NColor :
         return HashCode.Combine(R, G, B, A);
     }
 
+    public override string ToString()
+    {
+        return $"NColor: #{(int)R:X2}{(int)G:X2}{(int)B:X2}{(int)A:X2}";
+    }
+
     #endregion
 
     #region IParsable / ISpanParsable

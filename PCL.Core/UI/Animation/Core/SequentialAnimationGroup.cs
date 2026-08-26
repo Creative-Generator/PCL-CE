@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using PCL.Core.Logging;
 using PCL.Core.UI.Animation.Animatable;
 
 namespace PCL.Core.UI.Animation.Core;
@@ -15,6 +16,8 @@ public sealed class SequentialAnimationGroup : AnimationGroup
     {
         Status = AnimationStatus.Running;
         AnimationService.PushAnimationFireAndForget(this, target);
+        
+        LogWrapper.Debug("Animation", $"顺序动画组初始化：{Name}，有 {Children.Count} 个子动画");
         
         _cancelTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

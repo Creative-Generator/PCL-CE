@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using PCL.Core.Logging;
 using PCL.Core.UI.Animation.Animatable;
 
 namespace PCL.Core.UI.Animation.Core;
@@ -16,6 +17,8 @@ public sealed class ParallelAnimationGroup : AnimationGroup
     {
         Status = AnimationStatus.Running;
         AnimationService.PushAnimationFireAndForget(this, target);
+        
+        LogWrapper.Debug("Animation", $"并行动画组初始化：{Name}，有 {Children.Count} 个子动画");
         
         _cancelTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 

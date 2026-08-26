@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using PCL.Core.Logging;
 using PCL.Core.UI.Animation.Animatable;
 using PCL.Core.UI.Animation.Easings;
 using PCL.Core.UI.Animation.ValueProcessor;
@@ -98,6 +99,8 @@ public class FromToAnimationBase<T> : AnimationBase, IFromToAnimation
         
         // 设置状态
         Status = AnimationStatus.Running;
+        
+        LogWrapper.Debug("Animation", $"FromTo 动画初始化：{Name}，目标={target}，From={From}，To={To}，持续时间={Duration.TotalMilliseconds}ms，延迟={Delay.TotalMilliseconds}ms，总帧数={TotalFrames}");
     }
 
     public override void Cancel()
@@ -106,6 +109,10 @@ public class FromToAnimationBase<T> : AnimationBase, IFromToAnimation
         Interlocked.Exchange(ref _currentFrame, TotalFrames);
 
         Status = AnimationStatus.Canceled;
+        if (CurrentFrame != TotalFrames)
+        {
+            LogWrapper.Debug("Animation", $"FromTo 动画取消：{Name}，当前帧={CurrentFrame}/{TotalFrames}");
+        }
     }
 
     public override IAnimationFrame? ComputeNextFrame(IAnimatable target)

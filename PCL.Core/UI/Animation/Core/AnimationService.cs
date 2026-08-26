@@ -28,12 +28,30 @@ public sealed class AnimationService : GeneralService
     
     public override void Start()
     {
-        _Initialize();
+        Context.Info($"正在启动动画服务，FPS={Fps}，Scale={Scale}");
+        try
+        {
+            _Initialize();
+            Context.Info("动画服务启动完成");
+        }
+        catch (Exception e)
+        {
+            Context.Error("启动动画服务时发生异常", e);
+        }
     }
 
     public override void Stop()
     {
-        _Uninitialize();
+        Context.Info("正在停止动画服务");
+        try
+        {
+            _Uninitialize();
+            Context.Info("动画服务已停止");
+        }
+        catch (Exception e)
+        {
+            Context.Error("停止动画服务时发生异常", e);
+        }
     }
 
     #endregion
@@ -59,9 +77,10 @@ public sealed class AnimationService : GeneralService
     private static AsyncCountResetEvent _resetEvent = null!;
     private static int _taskCount;
     private static CancellationTokenSource _cts = null!;
+    private static Task[] _animationTasks = null!;
     
     public static int Fps { get; set; } = 60;
-    public static double Scale { get; set; } = 0.1d;
+    public static double Scale { get; set; } = 1d;
 
     public static IUIAccessProvider UIAccessProvider { get; private set; } = null!;
     
@@ -85,23 +104,42 @@ public sealed class AnimationService : GeneralService
         
         // 初始化 UI 线程访问提供器并启动赋值 Task
         UIAccessProvider = new WpfUIAccessProvider(Lifecycle.CurrentApplication.Dispatcher);
+        var cancellationToken = _cts.Token;
         _ = UIAccessProvider.InvokeAsync(async () =>
         {
-            if (_cts.IsCancellationRequested) return;
-            while (await _frameChannel.Reader.WaitToReadAsync())
+            try
             {
-                // 读取数据
-                while (_frameChannel.Reader.TryRead(out var item))
+                while (await _frameChannel.Reader.WaitToReadAsync(cancellationToken))
                 {
-                    // 如果动画源已被标记取消，直接丢弃该帧，不进行处理
-                    if (item.Source.Status == AnimationStatus.Canceled) 
-                        continue;
+                    // 读取数据
+                    while (_frameChannel.Reader.TryRead(out var item))
+                    {
+                        // 如果动画源已被标记取消，直接丢弃该帧，不进行处理
+                        if (item.Source.Status == AnimationStatus.Canceled)
+                            continue;
 
-                    // 正常处理
-                    item.Frame.GetAction()();
+                        try
+                        {
+                            item.Frame.GetAction()();
+                        }
+                        catch (Exception ex)
+                        {
+                            Context.Error(
+                                $"执行动画帧失败：动画类型={item.Source.GetType().Name}，名称={item.Source.Name}，状态={item.Source.Status}，当前帧={item.Source.CurrentFrame}",
+                                ex);
+                        }
+                    }
+
+                    await Task.Yield();
                 }
-        
-                await Task.Yield();
+            }
+            catch (OperationCanceledException)
+            {
+                // 服务停止时取消 UI 消费任务是正常流程。
+            }
+            catch (Exception e)
+            {
+                Context.Error("动画 UI 消费任务异常退出", e);
             }
         });
 
@@ -111,24 +149,27 @@ public sealed class AnimationService : GeneralService
         _clock.Start();
         
         // 运行动画计算 Task
+        _animationTasks = new Task[_taskCount];
         for (var i = 0; i < _taskCount; i++)
-        {
-            _ = Task.Run(_AnimationComputeTaskAsync);
-        }
+            _animationTasks[i] = Task.Run(_AnimationComputeTaskAsync);
     }
 
     private static void _Uninitialize()
     {
-        // 取消动画计算 Task
-        _cts.Cancel();
-        _cts.Dispose();
-        
-        // 停止 Clock 并注销 Tick 事件
+        // 先停止产生 Tick，避免停止过程中继续访问 ResetEvent
         _clock.Tick -= ClockOnTick;
         _clock.Stop();
-        
-        // 将 ResetEvent 释放
+
+        // 取消并唤醒动画计算 Task
+        _cts.Cancel();
+        _animationChannel.Writer.TryComplete();
+        _frameChannel.Writer.TryComplete();
+        _resetEvent.Set(_taskCount);
+
+        // 等待所有计算任务退出后再释放其依赖的资源
+        Task.WaitAll(_animationTasks);
         _resetEvent.Dispose();
+        _cts.Dispose();
         
         // 清理 Dictionary
         _namedAnimations.Clear();
@@ -142,61 +183,101 @@ public sealed class AnimationService : GeneralService
 
     private static async Task _AnimationComputeTaskAsync()
     {
-        // 本地动画列表，确保没有一直无法计算的动画
-        var animationList = new List<(IAnimation Animation, IAnimatable Target)>(8);
-        
-        // 持续监听 Channel 中的动画
-        while (!_cts.IsCancellationRequested)
+        try
         {
-            // 读取所有可用的动画到本地列表
-            while (_animationChannel.Reader.TryRead(out var animation))
-            {
-                // 将动画添加到本地列表
-                animationList.Add(animation);
-            }
+            Context.Info($"动画计算任务启动，Task ID={Task.CurrentId}");
 
-            // 如果没有动画，直接等下一帧
-            if (animationList.Count == 0)
-            {
-                await _resetEvent.WaitAsync();
-                continue;
-            }
+            // 本地动画列表，确保没有一直无法计算的动画
+            var animationList = new List<(IAnimation Animation, IAnimatable Target)>(8);
 
-            for (var i = animationList.Count - 1; i >= 0; i--)
+            // 持续监听 Channel 中的动画
+            while (!_cts.IsCancellationRequested)
             {
-                // TODO: 支持缓存动画计算结果 (由 AnimationData 支持)
-                
-                // 从列表中获取动画
-                var animationEntry = animationList[i];
-                            
-                // 如果动画已经完成或被取消，则从列表中移除
-                if (animationEntry.Animation.Status is AnimationStatus.Canceled or AnimationStatus.Completed)
+                // 读取所有可用的动画到本地列表
+                while (_animationChannel.Reader.TryRead(out var animation))
                 {
-                    animationEntry.Animation.RaiseCompleted();
-                    
-                    if (!string.IsNullOrEmpty(animationEntry.Animation.Name))
-                    {
-                        // 使用显式接口
-                        ((ICollection<KeyValuePair<string, IAnimation>>)_namedAnimations)
-                            .Remove(new KeyValuePair<string, IAnimation>(animationEntry.Animation.Name, animationEntry.Animation));
-                    }
-                    
-                    animationList.RemoveAt(i);
+                    // 将动画添加到本地列表
+                    animationList.Add(animation);
+                }
+
+                _cts.Token.ThrowIfCancellationRequested();
+                
+                // 如果没有动画，直接等下一帧
+                if (animationList.Count == 0)
+                {
+                    await _resetEvent.WaitAsync();
                     continue;
                 }
                 
-                // 计算动画的下一帧
-                var frame = animationEntry.Animation.ComputeNextFrame(animationEntry.Target);
-                // 如果没有计算帧（当动画为 SequentialAnimationGroup 或 ParallelAnimationGroup 这种动画集合时），跳过
-                if (frame is null) continue;
-                // 将动画帧写入 Channel
-                _frameChannel.Writer.TryWrite((frame, animationEntry.Animation));
-                // 增加当前帧计数
-                animationEntry.Animation.CurrentFrame++;
+                _cts.Token.ThrowIfCancellationRequested();
+
+                for (var i = animationList.Count - 1; i >= 0; i--)
+                {
+                    // TODO: 支持缓存动画计算结果 (由 AnimationData 支持)
+
+                    // 从列表中获取动画
+                    var animationEntry = animationList[i];
+
+                    // 如果动画已经完成或被取消，则从列表中移除
+                    if (animationEntry.Animation.Status is AnimationStatus.Canceled or AnimationStatus.Completed)
+                    {
+                        animationEntry.Animation.RaiseCompleted();
+
+                        if (!string.IsNullOrEmpty(animationEntry.Animation.Name))
+                        {
+                            // 使用显式接口
+                            ((ICollection<KeyValuePair<string, IAnimation>>)_namedAnimations)
+                                .Remove(new KeyValuePair<string, IAnimation>(animationEntry.Animation.Name,
+                                    animationEntry.Animation));
+                        }
+
+                        animationList.RemoveAt(i);
+                        continue;
+                    }
+
+                    try
+                    {
+                        // 计算动画的下一帧
+                        var frame = animationEntry.Animation.ComputeNextFrame(animationEntry.Target);
+                        // 如果没有计算帧（当动画为 SequentialAnimationGroup 或 ParallelAnimationGroup 这种动画集合时），跳过
+                        if (frame is null) continue;
+                        // 将动画帧写入 Channel
+                        if (!_frameChannel.Writer.TryWrite((frame, animationEntry.Animation)))
+                        {
+                            Context.Warn(
+                                $"动画帧写入 UI Channel 失败：动画类型={animationEntry.Animation.GetType().Name}，名称={animationEntry.Animation.Name}，当前帧={animationEntry.Animation.CurrentFrame}");
+                            continue;
+                        }
+
+                        // 增加当前帧计数
+                        animationEntry.Animation.CurrentFrame++;
+                    }
+                    catch (Exception e)
+                    {
+                        Context.Error(
+                            $"计算动画帧失败：动画类型={animationEntry.Animation.GetType().Name}，名称={animationEntry.Animation.Name}，状态={animationEntry.Animation.Status}，当前帧={animationEntry.Animation.CurrentFrame}，目标类型={animationEntry.Target.GetType().Name}",
+                            e);
+
+                        animationEntry.Animation.Cancel();
+                    }
+                }
+
+                // 等待 Tick 事件的通知
+                await _resetEvent.WaitAsync();
             }
-            
-            // 等待 Tick 事件的通知
-            await _resetEvent.WaitAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            Context.Info($"动画计算任务结束，Task ID={Task.CurrentId}");
+        }
+        catch (ObjectDisposedException e) when (e.ObjectName == nameof(AsyncCountResetEvent))
+        {
+            // 停止服务时释放 ResetEvent 会唤醒等待任务并抛出此异常。
+            Context.Info($"动画计算任务结束，Task ID={Task.CurrentId}");
+        }
+        catch (Exception e)
+        {
+            Context.Error($"动画计算任务异常退出，Task ID={Task.CurrentId}", e);
         }
     }
 
@@ -240,6 +321,7 @@ public sealed class AnimationService : GeneralService
         if (_namedAnimations.TryRemove(name, out var animation))
         {
             animation.Cancel();
+            Context.Info($"已取消名为 '{name}' 的动画");
         }
     }
 }
