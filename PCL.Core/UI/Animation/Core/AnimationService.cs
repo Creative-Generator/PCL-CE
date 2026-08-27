@@ -64,6 +64,8 @@ public sealed class AnimationService : GeneralService
         ValueProcessorManager.Register(new NColorValueProcessor());
         ValueProcessorManager.Register(new NRotateTransformValueProcessor());
         ValueProcessorManager.Register(new NScaleTransformValueProcessor());
+        ValueProcessorManager.Register(new NSkewTransformValueProcessor());
+        ValueProcessorManager.Register(new NTranslateTransformValueProcessor());
         ValueProcessorManager.Register(new PointValueProcessor());
         ValueProcessorManager.Register(new ThicknessValueProcessor());
     }
