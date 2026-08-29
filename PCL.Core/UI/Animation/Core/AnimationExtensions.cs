@@ -434,6 +434,6 @@ public static class AnimationExtensions
             aniGroup.Children.Add(ani);
         }
 
-        aniGroup.RunFireAndForget(EmptyAnimatable.Instance);
+        aniGroup.RunFireAndForget(new WpfAnimatable(target, null));
     }
 }
