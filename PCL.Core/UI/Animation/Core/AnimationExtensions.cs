@@ -75,9 +75,9 @@ public static class AnimationExtensions
         NColor? background = null,
         NColor? foreground = null)
     {
-        duration = duration ?? TimeSpan.FromMilliseconds(100);
-        delay = delay ?? TimeSpan.Zero;
-        easing = easing ?? LinearEasing.Shared;
+        duration ??= TimeSpan.FromMilliseconds(100);
+        delay ??= TimeSpan.Zero;
+        easing ??= LinearEasing.Shared;
 
         var aniGroup = new ParallelAnimationGroup();
 
