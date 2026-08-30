@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace PCL.Core.Utils;
 
 internal static class EaseUtils
@@ -14,6 +16,7 @@ internal static class EaseUtils
     internal const double ElasticLn2Times10 = 6.931471805599453;        // Math.Log(2d) * 10d
     internal const double ElasticPiTimes6Point5 = 20.420352248333657;   // Math.PI * 6.5d
     
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static double Bounce(double progress)
     {
         switch (progress)
