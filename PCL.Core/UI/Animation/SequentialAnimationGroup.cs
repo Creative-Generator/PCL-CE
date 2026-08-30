@@ -2,8 +2,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using PCL.Core.Logging;
 using PCL.Core.UI.Animation.Animatable;
+using PCL.Core.UI.Animation.Core;
 
-namespace PCL.Core.UI.Animation.Core;
+namespace PCL.Core.UI.Animation;
 
 /// <summary>
 /// 按顺序执行的动画集合。
