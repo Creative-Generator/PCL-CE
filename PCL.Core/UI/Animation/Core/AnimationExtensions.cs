@@ -90,7 +90,8 @@ public static class AnimationExtensions
                 To = width.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.WidthProperty);
             aniGroup.Children.Add(ani);
@@ -103,7 +104,8 @@ public static class AnimationExtensions
                 To = height.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.HeightProperty);
             aniGroup.Children.Add(ani);
@@ -116,7 +118,8 @@ public static class AnimationExtensions
                 To = opacity.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, UIElement.OpacityProperty);
             aniGroup.Children.Add(ani);
@@ -129,7 +132,8 @@ public static class AnimationExtensions
                 To = radius.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Border.CornerRadiusProperty);
             aniGroup.Children.Add(ani);
@@ -137,12 +141,14 @@ public static class AnimationExtensions
 
         if (translate is not null)
         {
+            GetOrCreateTransform<TranslateTransform>(target);
             var ani = new NTranslateTransformFromToAnimation
             {
                 To = translate.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, UIElement.RenderTransformProperty);
             aniGroup.Children.Add(ani);
@@ -150,38 +156,46 @@ public static class AnimationExtensions
 
         if (translateX is not null)
         {
+            var transform = GetOrCreateTransform<TranslateTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = translateX.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, TranslateTransform.XProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (translateY is not null)
         {
+            var transform = GetOrCreateTransform<TranslateTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = translateY.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, TranslateTransform.YProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (rotate is not null)
         {
+            GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
             var ani = new NRotateTransformFromToAnimation
             {
                 To = rotate.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, UIElement.RenderTransformProperty);
             aniGroup.Children.Add(ani);
@@ -189,25 +203,30 @@ public static class AnimationExtensions
 
         if (rotateAngle is not null)
         {
+            var transform = GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = rotateAngle.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, RotateTransform.AngleProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (scale is not null)
         {
+            GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new NScaleTransformFromToAnimation
             {
                 To = scale.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, UIElement.RenderTransformProperty);
             aniGroup.Children.Add(ani);
@@ -215,38 +234,46 @@ public static class AnimationExtensions
 
         if (scaleX is not null)
         {
+            var transform = GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = scaleX.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, ScaleTransform.ScaleXProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (scaleY is not null)
         {
+            var transform = GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = scaleY.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, ScaleTransform.ScaleYProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (skew is not null)
         {
+            GetOrCreateTransform<SkewTransform>(target);
             var ani = new NSkewTransformFromToAnimation
             {
                 To = skew.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, UIElement.RenderTransformProperty);
             aniGroup.Children.Add(ani);
@@ -254,26 +281,32 @@ public static class AnimationExtensions
 
         if (skewX is not null)
         {
+            var transform = GetOrCreateTransform<SkewTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = skewX.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, SkewTransform.AngleXProperty);
             aniGroup.Children.Add(ani);
         }
 
         if (skewY is not null)
         {
+            var transform = GetOrCreateTransform<SkewTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = skewY.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
+            SetTarget(ani, transform);
             SetTargetProperty(ani, SkewTransform.AngleYProperty);
             aniGroup.Children.Add(ani);
         }
@@ -285,7 +318,8 @@ public static class AnimationExtensions
                 To = margin.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.MarginProperty);
             aniGroup.Children.Add(ani);
@@ -298,7 +332,8 @@ public static class AnimationExtensions
                 To = marginLeft.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.MarginProperty);
             aniGroup.Children.Add(ani);
@@ -311,7 +346,8 @@ public static class AnimationExtensions
                 To = marginTop.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.MarginProperty);
             aniGroup.Children.Add(ani);
@@ -324,7 +360,8 @@ public static class AnimationExtensions
                 To = marginRight.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.MarginProperty);
             aniGroup.Children.Add(ani);
@@ -337,7 +374,8 @@ public static class AnimationExtensions
                 To = marginBottom.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, FrameworkElement.MarginProperty);
             aniGroup.Children.Add(ani);
@@ -350,7 +388,8 @@ public static class AnimationExtensions
                 To = padding.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.PaddingProperty);
             aniGroup.Children.Add(ani);
@@ -363,7 +402,8 @@ public static class AnimationExtensions
                 To = paddingLeft.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.PaddingProperty);
             aniGroup.Children.Add(ani);
@@ -376,7 +416,8 @@ public static class AnimationExtensions
                 To = paddingTop.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.PaddingProperty);
             aniGroup.Children.Add(ani);
@@ -389,7 +430,8 @@ public static class AnimationExtensions
                 To = paddingRight.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.PaddingProperty);
             aniGroup.Children.Add(ani);
@@ -402,7 +444,8 @@ public static class AnimationExtensions
                 To = paddingBottom.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.PaddingProperty);
             aniGroup.Children.Add(ani);
@@ -415,7 +458,8 @@ public static class AnimationExtensions
                 To = background.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.BackgroundProperty);
             aniGroup.Children.Add(ani);
@@ -428,12 +472,38 @@ public static class AnimationExtensions
                 To = foreground.Value,
                 Duration = duration.Value,
                 Delay = delay.Value,
-                Easing = easing
+                Easing = easing,
+                ValueType = valueType
             };
             SetTargetProperty(ani, Control.ForegroundProperty);
             aniGroup.Children.Add(ani);
         }
 
         aniGroup.RunFireAndForget(new WpfAnimatable(target, null));
+    }
+
+    private static TTransform GetOrCreateTransform<TTransform>(DependencyObject target, bool setDefaultOrigin = false)
+        where TTransform : Transform
+    {
+        if (target is not UIElement element)
+            throw new ArgumentException("Transform 动画目标必须是 UIElement。", nameof(target));
+
+        if (element.RenderTransform is not TTransform transform)
+        {
+            transform = typeof(TTransform) switch
+            {
+                var type when type == typeof(TranslateTransform) => (TTransform)(Transform)new TranslateTransform(),
+                var type when type == typeof(RotateTransform) => (TTransform)(Transform)new RotateTransform(),
+                var type when type == typeof(ScaleTransform) => (TTransform)(Transform)new ScaleTransform(),
+                var type when type == typeof(SkewTransform) => (TTransform)(Transform)new SkewTransform(),
+                _ => throw new NotSupportedException($"不支持的 Transform 类型：{typeof(TTransform).Name}")
+            };
+            element.RenderTransform = transform;
+        }
+
+        if (setDefaultOrigin && target is FrameworkElement frameworkElement)
+            frameworkElement.RenderTransformOrigin = new Point(0.5, 0.5);
+
+        return transform;
     }
 }
