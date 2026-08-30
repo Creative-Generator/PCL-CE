@@ -35,8 +35,10 @@ public sealed class WpfAnimatable(DependencyObject owner, DependencyProperty? pr
         {
             SolidColorBrush brush => (NColor)brush,
             Color color => (NColor)color,
+            TranslateTransform translateTransform => (NTranslateTransform)translateTransform,
             ScaleTransform scaleTransform => (NScaleTransform)scaleTransform,
             RotateTransform rotateTransform => (NRotateTransform)rotateTransform,
+            SkewTransform skewTransform => (NSkewTransform)skewTransform,
             _ => value
         };
     }
@@ -53,8 +55,10 @@ public sealed class WpfAnimatable(DependencyObject owner, DependencyProperty? pr
                 "Color" => (Color)color,
                 _ => (SolidColorBrush)color
             },
+            NTranslateTransform tt => (TranslateTransform)tt,
             NScaleTransform st => (ScaleTransform)st,
             NRotateTransform rt => (RotateTransform)rt,
+            NSkewTransform st => (SkewTransform)st,
             _ => value
         };
 
@@ -93,10 +97,24 @@ public sealed class WpfAnimatable(DependencyObject owner, DependencyProperty? pr
             return;
         }
 
+        if (typeof(T) == typeof(NTranslateTransform))
+        {
+            var tt = Unsafe.As<T, NTranslateTransform>(ref value);
+            Owner.SetValue(Property, (TranslateTransform)tt);
+            return;
+        }
+
         if (typeof(T) == typeof(NRotateTransform))
         {
             var rt = Unsafe.As<T, NRotateTransform>(ref value);
             Owner.SetValue(Property, (RotateTransform)rt);
+            return;
+        }
+
+        if (typeof(T) == typeof(NSkewTransform))
+        {
+            var st = Unsafe.As<T, NSkewTransform>(ref value);
+            Owner.SetValue(Property, (SkewTransform)st);
             return;
         }
 
