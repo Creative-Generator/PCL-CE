@@ -327,4 +327,9 @@ public sealed class AnimationService : GeneralService
             Context.Info($"已取消名为 '{name}' 的动画");
         }
     }
+
+    public static bool IsRunningByName(string name)
+    {
+        return _namedAnimations.ContainsKey(name);
+    }
 }

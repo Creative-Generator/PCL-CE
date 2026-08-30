@@ -1,8 +1,9 @@
 using System;
 using PCL.Core.UI.Animation.Animatable;
+using PCL.Core.UI.Animation.Core;
 using PCL.Core.UI.Animation.ValueProcessor;
 
-namespace PCL.Core.UI.Animation.Core;
+namespace PCL.Core.UI.Animation;
 
 public readonly struct FromToAnimationFrame<T>(IAnimatable target, T value, T startValue) : IAnimationFrame
 {
