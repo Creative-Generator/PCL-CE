@@ -28,4 +28,9 @@ public class YFromToAnimation : FromToAnimationBase<double>
             Type = XAndYFromToAnimationFrameType.Y
         };
     }
+    
+    protected override double GetStartValue(IAnimatable target)
+    {
+        return 0;
+    }
 }

@@ -82,7 +82,7 @@ public class FromToAnimationBase<T> : AnimationBase, IFromToAnimation
         ArgumentNullException.ThrowIfNull(To);
 
         // 记录初始值
-        _startValue = (T)target.GetValue()!;
+        _startValue = GetStartValue(target);
 
         // 如果 From 为空，则根据动画值类型设置初始值
         if (!ValueProcessorManager.Equal(_startValue, From))
@@ -131,5 +131,10 @@ public class FromToAnimationBase<T> : AnimationBase, IFromToAnimation
                 : ValueProcessorManager.Subtract(CurrentValue!, From!),
             StartValue = ValueType == AnimationValueType.Relative ? _startValue! : From!
         };
+    }
+
+    protected virtual T GetStartValue(IAnimatable target)
+    {
+        return (T)target.GetValue()!;
     }
 }
