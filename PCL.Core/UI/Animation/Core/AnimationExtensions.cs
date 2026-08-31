@@ -43,6 +43,22 @@ public static class AnimationExtensions
         return (DependencyProperty)element.GetValue(TargetPropertyProperty);
     }
 
+    public static readonly DependencyProperty AnimatableProperty = DependencyProperty.RegisterAttached(
+        "Animatable", typeof(IAnimatable), typeof(AnimationExtensions), new PropertyMetadata(default(IAnimatable)));
+
+    public static void SetAnimatable(DependencyObject element, IAnimatable value)
+    {
+        if (element is not IAnimation)
+            throw new InvalidOperationException("AnimationExtensions.Animatable 只能附加到 IAnimation 实例上。");
+        
+        element.SetValue(AnimatableProperty, value);
+    }
+
+    public static IAnimatable GetAnimatable(DependencyObject element)
+    {
+        return (IAnimatable)element.GetValue(AnimatableProperty);
+    }
+
     #endregion
 
     public static void Animate(this DependencyObject target, TimeSpan? duration = null, TimeSpan? delay = null,

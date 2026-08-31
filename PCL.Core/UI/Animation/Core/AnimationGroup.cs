@@ -78,6 +78,11 @@ public abstract class AnimationGroup : AnimationBase
         DependencyObject? targetObject = null;
         DependencyProperty? targetProperty = null;
 
+        if (WpfUtils.IsDependencyPropertySet(aniDependencyObject, AnimationExtensions.AnimatableProperty))
+        {
+            return (IAnimatable)aniDependencyObject.GetValue(AnimationExtensions.AnimatableProperty);
+        }
+        
         // Target check
         if (WpfUtils.IsDependencyPropertySet(aniDependencyObject, AnimationExtensions.TargetProperty))
         {
