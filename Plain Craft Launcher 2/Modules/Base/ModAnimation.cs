@@ -9,6 +9,8 @@ using PCL.Core.Utils;
 using PCL.Network;
 
 using PCL.Core.App.Localization;
+using PCL.Modules.Base;
+
 namespace PCL;
 
 public static partial class ModAnimation
@@ -1232,9 +1234,9 @@ public static partial class ModAnimation
     /// </summary>
     public class AniEaseInout : AniEase
     {
-        private readonly AniEase easeIn;
-        private readonly double easeInPercent;
-        private readonly AniEase easeOut;
+        public readonly AniEase easeIn;
+        public readonly double easeInPercent;
+        public readonly AniEase easeOut;
 
         public AniEaseInout(AniEase easeIn, AniEase easeOut, double easeInPercent = 0.5d)
         {
@@ -1274,7 +1276,7 @@ public static partial class ModAnimation
     /// </summary>
     public class AniEaseInFluent : AniEase
     {
-        private readonly AniEasePower p;
+        public readonly AniEasePower p;
 
         public AniEaseInFluent(AniEasePower power = AniEasePower.Middle)
         {
@@ -1292,7 +1294,7 @@ public static partial class ModAnimation
     /// </summary>
     public class AniEaseOutFluent : AniEase
     {
-        private readonly AniEasePower p;
+        public readonly AniEasePower p;
 
         public AniEaseOutFluent(AniEasePower power = AniEasePower.Middle)
         {
@@ -1311,10 +1313,12 @@ public static partial class ModAnimation
     public class AniEaseInoutFluent : AniEase
     {
         private readonly AniEaseInout ease;
+        public readonly AniEasePower p;
 
         public AniEaseInoutFluent(AniEasePower power = AniEasePower.Middle, double middle = 0.5d)
         {
-            ease = new AniEaseInout(new AniEaseInFluent(power), new AniEaseOutFluent(power), middle);
+            p = power;
+            ease = new AniEaseInout(new AniEaseInFluent(p), new AniEaseOutFluent(p), middle);
         }
 
         public override double GetValue(double t)
@@ -1356,17 +1360,19 @@ public static partial class ModAnimation
     /// </summary>
     public class AniEaseInBack : AniEase
     {
-        private readonly double p;
+        private readonly double _p;
+        public readonly AniEasePower p;
 
         public AniEaseInBack(AniEasePower power = AniEasePower.Middle)
         {
-            p = 3d - (double)power * 0.5d;
+            p = power;
+            _p = 3d - (double)p * 0.5d;
         }
 
         public override double GetValue(double t)
         {
             t = ModBase.MathClamp(t, 0d, 1d);
-            return Math.Pow(t, p) * Math.Cos(1.5d * Math.PI * (1d - t));
+            return Math.Pow(t, _p) * Math.Cos(1.5d * Math.PI * (1d - t));
         }
     }
 
@@ -1375,17 +1381,19 @@ public static partial class ModAnimation
     /// </summary>
     public class AniEaseOutBack : AniEase
     {
-        private readonly double p;
+        private readonly double _p;
+        public readonly AniEasePower p;
 
         public AniEaseOutBack(AniEasePower power = AniEasePower.Middle)
         {
-            p = 3d - (double)power * 0.5d;
+            p = power;
+            _p = 3d - (double)p * 0.5d;
         }
 
         public override double GetValue(double t)
         {
             t = ModBase.MathClamp(t, 0d, 1d);
-            return 1d - Math.Pow(1d - t, p) * Math.Cos(1.5d * Math.PI * t);
+            return 1d - Math.Pow(1d - t, _p) * Math.Cos(1.5d * Math.PI * t);
         }
     }
 
@@ -1502,7 +1510,8 @@ public static partial class ModAnimation
     /// <param name="name">需要停止的动画组的名称。</param>
     public static void AniStop(string name)
     {
-        aniGroups.Remove(name, out _);
+        // aniGroups.Remove(name, out _);
+        LegacyAnimationWrapper.Stop(name);
     }
 
     /// <summary>
@@ -1510,7 +1519,8 @@ public static partial class ModAnimation
     /// </summary>
     public static bool AniIsRun(string name)
     {
-        return aniGroups.ContainsKey(name);
+        // return aniGroups.ContainsKey(name);
+        return LegacyAnimationWrapper.IsRunning(name);
     }
 
     #endregion

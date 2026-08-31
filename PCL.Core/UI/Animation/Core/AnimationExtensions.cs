@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using PCL.Core.UI.Animation.Animatable;
 using PCL.Core.UI.Animation.Easings;
+using PCL.Core.Utils;
 
 namespace PCL.Core.UI.Animation.Core;
 
@@ -157,7 +158,7 @@ public static class AnimationExtensions
 
         if (translate is not null)
         {
-            GetOrCreateTransform<TranslateTransform>(target);
+            ControlHelper.GetOrCreateTransform<TranslateTransform>(target);
             var ani = new NTranslateTransformFromToAnimation
             {
                 To = translate.Value,
@@ -172,7 +173,7 @@ public static class AnimationExtensions
 
         if (translateX is not null)
         {
-            var transform = GetOrCreateTransform<TranslateTransform>(target);
+            var transform = ControlHelper.GetOrCreateTransform<TranslateTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = translateX.Value,
@@ -188,7 +189,7 @@ public static class AnimationExtensions
 
         if (translateY is not null)
         {
-            var transform = GetOrCreateTransform<TranslateTransform>(target);
+            var transform = ControlHelper.GetOrCreateTransform<TranslateTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = translateY.Value,
@@ -204,7 +205,7 @@ public static class AnimationExtensions
 
         if (rotate is not null)
         {
-            GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
+            ControlHelper.GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
             var ani = new NRotateTransformFromToAnimation
             {
                 To = rotate.Value,
@@ -219,7 +220,7 @@ public static class AnimationExtensions
 
         if (rotateAngle is not null)
         {
-            var transform = GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
+            var transform = ControlHelper.GetOrCreateTransform<RotateTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = rotateAngle.Value,
@@ -235,7 +236,7 @@ public static class AnimationExtensions
 
         if (scale is not null)
         {
-            GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
+            ControlHelper.GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new NScaleTransformFromToAnimation
             {
                 To = scale.Value,
@@ -250,7 +251,7 @@ public static class AnimationExtensions
 
         if (scaleX is not null)
         {
-            var transform = GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
+            var transform = ControlHelper.GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = scaleX.Value,
@@ -266,7 +267,7 @@ public static class AnimationExtensions
 
         if (scaleY is not null)
         {
-            var transform = GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
+            var transform = ControlHelper.GetOrCreateTransform<ScaleTransform>(target, setDefaultOrigin: true);
             var ani = new DoubleFromToAnimation
             {
                 To = scaleY.Value,
@@ -282,7 +283,7 @@ public static class AnimationExtensions
 
         if (skew is not null)
         {
-            GetOrCreateTransform<SkewTransform>(target);
+            ControlHelper.GetOrCreateTransform<SkewTransform>(target);
             var ani = new NSkewTransformFromToAnimation
             {
                 To = skew.Value,
@@ -297,7 +298,7 @@ public static class AnimationExtensions
 
         if (skewX is not null)
         {
-            var transform = GetOrCreateTransform<SkewTransform>(target);
+            var transform = ControlHelper.GetOrCreateTransform<SkewTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = skewX.Value,
@@ -313,7 +314,7 @@ public static class AnimationExtensions
 
         if (skewY is not null)
         {
-            var transform = GetOrCreateTransform<SkewTransform>(target);
+            var transform = ControlHelper.GetOrCreateTransform<SkewTransform>(target);
             var ani = new DoubleFromToAnimation
             {
                 To = skewY.Value,
@@ -496,30 +497,5 @@ public static class AnimationExtensions
         }
 
         aniGroup.RunFireAndForget(new WpfAnimatable(target, null));
-    }
-
-    private static TTransform GetOrCreateTransform<TTransform>(DependencyObject target, bool setDefaultOrigin = false)
-        where TTransform : Transform
-    {
-        if (target is not UIElement element)
-            throw new ArgumentException("Transform 动画目标必须是 UIElement。", nameof(target));
-
-        if (element.RenderTransform is not TTransform transform)
-        {
-            transform = typeof(TTransform) switch
-            {
-                var type when type == typeof(TranslateTransform) => (TTransform)(Transform)new TranslateTransform(),
-                var type when type == typeof(RotateTransform) => (TTransform)(Transform)new RotateTransform(),
-                var type when type == typeof(ScaleTransform) => (TTransform)(Transform)new ScaleTransform(),
-                var type when type == typeof(SkewTransform) => (TTransform)(Transform)new SkewTransform(),
-                _ => throw new NotSupportedException($"不支持的 Transform 类型：{typeof(TTransform).Name}")
-            };
-            element.RenderTransform = transform;
-        }
-
-        if (setDefaultOrigin && target is FrameworkElement frameworkElement)
-            frameworkElement.RenderTransformOrigin = new Point(0.5, 0.5);
-
-        return transform;
     }
 }
