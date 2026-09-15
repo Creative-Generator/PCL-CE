@@ -5,7 +5,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:PCL"
-    d:DataContext="{d:DesignInstance Type=local:FriendsViewModel}"
+    xmlns:viewModels="clr-namespace:PCL.ViewModels"
+    d:DataContext="{d:DesignInstance Type=viewModels:FriendsViewModel}"
     mc:Ignorable="d">
     <Grid>
         <local:MyScrollViewer>

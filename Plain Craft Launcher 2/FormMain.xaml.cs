@@ -14,6 +14,7 @@ using PCL.Core.App.IoC;
 using PCL.Core.App.Localization;
 using PCL.Core.Logging;
 using PCL.Core.Minecraft;
+using PCL.Core.Minecraft.Profile.Models;
 using PCL.Core.UI;
 using PCL.Core.UI.Theme;
 using PCL.Core.Utils;
@@ -1506,7 +1507,7 @@ public partial class FormMain
             case PageType.Friends:
             {
                 // TODO: 多语言
-                return $"{stack.additional?.Profile.Username ?? throw new InvalidCastException("无法读取玩家档案信息。")} 的好友";
+                return $"{stack.additional?.Profile.UserName ?? throw new InvalidCastException("无法读取玩家档案信息。")} 的好友";
             }
 
             default:
@@ -1601,7 +1602,7 @@ public partial class FormMain
             ModComp.CompLoaderType TargetLoader,
             ModComp.CompType ResourceType,
             string SavePath,
-            ModProfile.McProfile? Profile
+            McProfile? Profile
         )? additional;
 
         public PageType page;

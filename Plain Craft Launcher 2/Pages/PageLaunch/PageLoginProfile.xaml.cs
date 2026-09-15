@@ -156,9 +156,10 @@ public partial class PageLoginProfile
         // 根据档案类型显示不同的菜单项
         sender.Buttons = ((McProfile)sender.Tag).ProfileType switch
         {
-            ModLaunch.McLoginType.Legacy => [btnEditUuid, btnDelete],
-            ModLaunch.McLoginType.Auth => [btnCopyUuid, btnDelete],
-            ModLaunch.McLoginType.Ms => [btnFriends, btnCopyUuid, btnDelete],
+            ProfileType.Microsoft => [btnFriends, btnCopyUuid, btnDelete],
+            ProfileType.Offline => [btnEditUuid, btnDelete],
+            ProfileType.Authlib => [btnCopyUuid, btnDelete],
+            ProfileType.YggdrasilConnect => [btnEditUuid, btnDelete],
             _ => throw new InvalidOperationException("未知的登录类型。")
         };
     }
@@ -207,7 +208,7 @@ public partial class PageLoginProfile
     // 好友
     private void BtnFriends_Click(object sender, EventArgs e)
     {
-        var profile = (ModProfile.McProfile)((MyIconButton)sender).Tag;
+        var profile = (McProfile)((MyIconButton)sender).Tag;
         ModMain.frmMain!.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Friends, additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, null, profile)});
     }
 
