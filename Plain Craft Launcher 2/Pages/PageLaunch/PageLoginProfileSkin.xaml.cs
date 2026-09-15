@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Input;
 using PCL.Core.App.Localization;
+using PCL.Core.Minecraft.Profile;
+using PCL.Core.Minecraft.Profile.Models;
 
 namespace PCL;
 
@@ -25,14 +27,15 @@ public partial class PageLoginProfileSkin
     {
         ModBase.Log("[Profile] 刷新档案界面");
         Skin.Clear();
-        if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Ms)
+        var profile = ProfileService.Current ?? throw new InvalidOperationException("No profile selected.");
+        if (profile.ProfileType == ProfileType.Microsoft)
         {
             BtnEdit.Visibility = Visibility.Visible;
             BtnFriends.Visibility = Visibility.Visible;
             ModBase.Log("[Profile] 使用正版皮肤加载器");
             Skin.loader = PageLaunchLeft.skinMs;
         }
-        else if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Auth)
+        else if (profile.ProfileType is ProfileType.Authlib or ProfileType.YggdrasilConnect)
         {
             BtnEdit.Visibility = Visibility.Visible;
             BtnFriends.Visibility = Visibility.Collapsed;
@@ -48,8 +51,8 @@ public partial class PageLoginProfileSkin
         }
 
         Skin.loader.Start(isForceRestart: true);
-        TextName.Text = ModProfile.selectedProfile.Username;
-        TextType.Text = (string)ModProfile.GetProfileInfo(ModProfile.selectedProfile);
+        TextName.Text = profile.UserName;
+        TextType.Text = ProfileUi.GetProfileInfo(profile);
     }
 
     #region 控制与编辑
@@ -89,13 +92,15 @@ public partial class PageLoginProfileSkin
     // 修改密码
     private void BtnEditPassword_Click(object sender, RoutedEventArgs e)
     {
-        if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Ms)
+        var profile = ProfileService.Current;
+        if (profile?.ProfileType == ProfileType.Microsoft)
         {
             ModBase.OpenWebsite("https://account.live.com/password/Change");
         }
-        else if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Auth)
+        else if ((profile?.ProfileType is ProfileType.Authlib or ProfileType.YggdrasilConnect) &&
+                 !string.IsNullOrWhiteSpace(profile.Server))
         {
-            var server = ModProfile.selectedProfile.Server;
+            var server = profile.Server;
             ModBase.OpenWebsite(server.Replace("/api/yggdrasil/authserver" + (server.EndsWithF("/") ? "/" : ""),
                 "/user/profile"));
         }
@@ -108,13 +113,13 @@ public partial class PageLoginProfileSkin
     // 修改 ID
     private void BtnEditName_Click(object sender, RoutedEventArgs e)
     {
-        ModProfile.EditProfileId();
+        ProfileUi.EditProfileId();
     }
 
     // 选择档案
     private void ChangeProfile(object sender, EventArgs e)
     {
-        ModProfile.selectedProfile = null;
+        ProfileService.Select(null);
         ModBase.RunInUi(() =>
         {
             ModMain.frmLaunchLeft.RefreshPage(true);
@@ -125,10 +130,12 @@ public partial class PageLoginProfileSkin
     // 修改皮肤
     private void Skin_Click(object sender, RoutedEventArgs e)
     {
-        if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Ms)
-            ModProfile.ChangeSkinMs();
-        else if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Auth)
-            ModBase.OpenWebsite(ModProfile.selectedProfile.Server.BeforeFirst("api/yggdrasil/authserver") +
+        var profile = ProfileService.Current;
+        if (profile?.ProfileType == ProfileType.Microsoft)
+            ProfileUi.ChangeSkinMs();
+        else if ((profile?.ProfileType is ProfileType.Authlib or ProfileType.YggdrasilConnect) &&
+                 !string.IsNullOrWhiteSpace(profile.Server))
+            ModBase.OpenWebsite(profile.Server.BeforeFirst("api/yggdrasil/authserver") +
                                 "user/closet");
         else
                 HintService.Hint(Lang.Text("Launch.Account.ProfileSkin.SkinUnsupported"));
@@ -149,10 +156,12 @@ public partial class PageLoginProfileSkin
     // 修改披风
     private void BtnSkinCape_Click(object sender, RoutedEventArgs e)
     {
-        if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Ms)
+        var profile = ProfileService.Current;
+        if (profile?.ProfileType == ProfileType.Microsoft)
             Skin.BtnSkinCape_Click(sender, e);
-        else if (ModProfile.selectedProfile.Type == ModLaunch.McLoginType.Auth)
-            ModBase.OpenWebsite(ModProfile.selectedProfile.Server.BeforeFirst("api/yggdrasil/authserver") +
+        else if ((profile?.ProfileType is ProfileType.Authlib or ProfileType.YggdrasilConnect) &&
+                 !string.IsNullOrWhiteSpace(profile.Server))
+            ModBase.OpenWebsite(profile.Server.BeforeFirst("api/yggdrasil/authserver") +
                                 "user/closet");
         else
             HintService.Hint(Lang.Text("Launch.Account.ProfileSkin.CapeUnsupported"));
