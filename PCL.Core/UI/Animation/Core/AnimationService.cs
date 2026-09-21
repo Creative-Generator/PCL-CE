@@ -61,6 +61,7 @@ public sealed class AnimationService : GeneralService
         // 在这里注册所有的 ValueProcessor
         ValueProcessorManager.Register(new CornerRadiusValueProcessor());
         ValueProcessorManager.Register(new DoubleValueProcessor());
+        ValueProcessorManager.Register(new GridLengthValueProcessor());
         ValueProcessorManager.Register(new MatrixValueProcessor());
         ValueProcessorManager.Register(new NColorValueProcessor());
         ValueProcessorManager.Register(new NRotateTransformValueProcessor());
