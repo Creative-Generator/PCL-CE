@@ -17,8 +17,8 @@ public readonly struct XAndYFromToAnimationFrame(
 
     public Action GetAction()
     {
-        var animatable = target;
-        var d = value;
+        var animatable = Target;
+        var d = Value;
 
         // TODO: 石山 +1，但没办法，未来删了此处（旧动画兼容必须）
         return Type switch
