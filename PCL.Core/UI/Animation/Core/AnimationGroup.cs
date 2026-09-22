@@ -38,6 +38,16 @@ public abstract class AnimationGroup : AnimationBase
         // 确保集合初始化，但不进行自动同步
         SetCurrentValue(ChildrenProperty, new ObservableCollection<IAnimation>());
     }
+    
+    protected AnimationGroup(IEnumerable<IAnimation> animations)
+    {
+        SetCurrentValue(ChildrenProperty, new ObservableCollection<IAnimation>());
+        
+        foreach (var ani in animations)
+        {
+            Children.Add(ani);
+        }
+    }
 
     public override int CurrentFrame { get; set; }
 

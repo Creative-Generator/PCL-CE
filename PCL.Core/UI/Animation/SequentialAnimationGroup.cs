@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using PCL.Core.Logging;
@@ -12,6 +13,14 @@ namespace PCL.Core.UI.Animation;
 public sealed class SequentialAnimationGroup : AnimationGroup
 {
     private TaskCompletionSource? _cancelTcs;
+
+    public SequentialAnimationGroup()
+    {
+    }
+    
+    public SequentialAnimationGroup(IEnumerable<IAnimation> animations) : base(animations)
+    {
+    }
 
     public override async Task<IAnimation> RunAsync(IAnimatable target)
     {

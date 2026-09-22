@@ -12,6 +12,14 @@ namespace PCL.Core.UI.Animation;
 /// </summary>
 public sealed class ParallelAnimationGroup : AnimationGroup
 {
+    public ParallelAnimationGroup()
+    {
+    }
+
+    public ParallelAnimationGroup(IEnumerable<IAnimation> animations) : base(animations)
+    {
+    }
+    
     private TaskCompletionSource? _cancelTcs;
 
     public override async Task<IAnimation> RunAsync(IAnimatable target)
