@@ -1,5 +1,9 @@
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
+using PCL.Core.Logging;
+using PCL.Core.UI;
 using PCL.Core.UI.Animation;
 using PCL.Core.UI.Animation.Animatable;
 using PCL.Core.UI.Animation.Core;
@@ -10,9 +14,12 @@ namespace PCL.Modules.Base;
 
 public static class LegacyAnimationWrapper
 {
-    public static void Add(string name, ModAnimation.AniGroupEntry entry)
+    public static void Start(string name, ModAnimation.AniGroupEntry entry)
     {
+        var ani = HandleLegacyAnimation(entry);
+        ani.Name = name;
         
+        ani.RunFireAndForget(EmptyAnimatable.Instance);
     }
     
     public static void Stop(string name) => AnimationService.CancelAnimationByName(name);
@@ -22,20 +29,37 @@ public static class LegacyAnimationWrapper
     private static IAnimation HandleLegacyAnimation(ModAnimation.AniGroupEntry entry)
     {
         var data = entry.data;
-        var group = new ParallelAnimationGroup();
+        if (data.Count == 1)
+        {
+            return HandleSingleLegacyAnimation(data[0]);
+        }
         
-
-        throw new NotSupportedException();
+        var group = new SequentialAnimationGroup();
+        List<IAnimation> animations = [];
+        foreach (var ani in data)
+        {
+            if (ani.isAfter)
+            {
+                group.Children.Add(new ParallelAnimationGroup(animations));
+                animations.Clear();
+            }
+            
+            var animation = HandleSingleLegacyAnimation(ani);
+            animations.Add(animation);
+        }
+        
+        group.Children.Add(new ParallelAnimationGroup(animations));
+        return group;
     }
-    
+
     private static IAnimation HandleSingleLegacyAnimation(ModAnimation.AniData data)
     {
         return data.typeMain switch
         {
             ModAnimation.AniType.Number => HandleNumberAnimation(data),
-            ModAnimation.AniType.Color => handleColorAnimation(data),
-            ModAnimation.AniType.Code => new ActionAnimation(),
-            _ => throw new NotSupportedException()
+            ModAnimation.AniType.Color => HandleColorAnimation(data),
+            ModAnimation.AniType.Code => HandleCodeAnimation(data),
+            _ => HandleOtherAnimation(data)
         };
 
         IAnimation HandleNumberAnimation(ModAnimation.AniData number)
@@ -50,7 +74,7 @@ public static class LegacyAnimationWrapper
                 Easing = HandleLegacyEasing(number.ease)
             };
             AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
-            
+
             switch (number.typeSub)
             {
                 case ModAnimation.AniTypeSub.X:
@@ -87,12 +111,14 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.HeightProperty);
                     break;
                 case ModAnimation.AniTypeSub.TranslateX:
-                    var transformX = ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
+                    var transformX =
+                        ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
                     AnimationExtensions.SetTarget(ani, transformX);
                     AnimationExtensions.SetTargetProperty(ani, TranslateTransform.XProperty);
                     break;
                 case ModAnimation.AniTypeSub.TranslateY:
-                    var transformY = ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
+                    var transformY =
+                        ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
                     AnimationExtensions.SetTarget(ani, transformY);
                     AnimationExtensions.SetTargetProperty(ani, TranslateTransform.YProperty);
                     break;
@@ -115,6 +141,18 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetAnimatable(ani, EmptyAnimatable.Instance);
                     break;
                 case ModAnimation.AniTypeSub.GridLengthWidth:
+                    // 天马行空...
+                    ani = new GridLengthFromToAnimation
+                    {
+                        From = new GridLength(0, GridUnitType.Star),
+                        To = new GridLength((double)number.value, GridUnitType.Star),
+                        ValueType = AnimationValueType.Relative,
+                        Duration = TimeSpan.FromMilliseconds(number.timeTotal),
+                        Delay = TimeSpan.FromMilliseconds(-number.timeFinished),
+                        Easing = HandleLegacyEasing(number.ease)
+                    };
+                    AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
+                    AnimationExtensions.SetTargetProperty(ani, ColumnDefinition.WidthProperty);
                     break;
                 default:
                     throw new NotSupportedException();
@@ -123,9 +161,43 @@ public static class LegacyAnimationWrapper
             return ani;
         }
 
-        NColorFromToAnimation handleColorAnimation(ModAnimation.AniData color)
+        NColorFromToAnimation HandleColorAnimation(ModAnimation.AniData color)
         {
+            var c = (ModBase.MyColor)color.value;
+            var ani = new NColorFromToAnimation
+            {
+                From = new NColor(),
+                To = new NColor((float)c.r, (float)c.g, (float)c.b, (float)c.a),
+                ValueType = AnimationValueType.Relative,
+                Duration = TimeSpan.FromMilliseconds(color.timeTotal),
+                Delay = TimeSpan.FromMilliseconds(-color.timeFinished),
+                Easing = HandleLegacyEasing(color.ease)
+            };
+            AnimationExtensions.SetTarget(ani, (DependencyObject)((object[])color.obj)[0]);
+            AnimationExtensions.SetTargetProperty(ani, (DependencyProperty)((object[])color.obj)[1]);
+
+            return ani;
+        }
+
+        ActionAnimation HandleCodeAnimation(ModAnimation.AniData code)
+        {
+            return new ActionAnimation(() => ((ThreadStart)code.value)());
+        }
+
+        ActionAnimation HandleOtherAnimation(ModAnimation.AniData other)
+        {
+            var uuid = ModBase.GetUuid();
+            LogWrapper.Debug("Animation", $"出现 LegacyAnimationWrapper 未转换的动画，请及时修改。调用栈：{new StackTrace(skipFrames: 4)}");
             
+            return new ActionAnimation(() =>
+            {
+                ModAnimation.aniGroups.TryAdd($"LegacyAnimation_{uuid}", new ModAnimation.AniGroupEntry
+                {
+                    data = [other],
+                    startTick = TimeUtils.GetTimeTick(),
+                    Uuid = uuid
+                });
+            });
         }
     }
 
@@ -191,7 +263,6 @@ public static class LegacyAnimationWrapper
                 ModAnimation.AniEaseOutBack bOut => new BackEaseWithPowerOut(HandleLegacyEasePower(bOut.p)),
                 _ => throw new NotSupportedException($"不支持的缓动类型: {back.GetType().Name}")
             };
-            
         }
 
         EasePower HandleLegacyEasePower(ModAnimation.AniEasePower easePower)

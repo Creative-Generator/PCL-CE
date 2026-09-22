@@ -1493,7 +1493,8 @@ public static partial class ModAnimation
             name = newEntry.Uuid.ToString();
         else
             AniStop(name);
-        aniGroups.TryAdd(name, newEntry);
+        // aniGroups.TryAdd(name, newEntry);
+        LegacyAnimationWrapper.Start(name, newEntry);
     }
 
     /// <summary>
