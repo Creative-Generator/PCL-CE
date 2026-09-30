@@ -29,11 +29,7 @@ public static class LegacyAnimationWrapper
     private static IAnimation HandleLegacyAnimation(ModAnimation.AniGroupEntry entry)
     {
         var data = entry.data;
-        if (data.Count == 1)
-        {
-            return HandleSingleLegacyAnimation(data[0]);
-        }
-        
+
         var group = new SequentialAnimationGroup();
         List<IAnimation> animations = [];
         foreach (var ani in data)
@@ -73,7 +69,6 @@ public static class LegacyAnimationWrapper
                 Delay = TimeSpan.FromMilliseconds(-number.timeFinished),
                 Easing = HandleLegacyEasing(number.ease)
             };
-            AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
 
             switch (number.typeSub)
             {
@@ -102,12 +97,15 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     break;
                 case ModAnimation.AniTypeSub.Opacity:
+                    AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, UIElement.OpacityProperty);
                     break;
                 case ModAnimation.AniTypeSub.Width:
+                    AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.WidthProperty);
                     break;
                 case ModAnimation.AniTypeSub.Height:
+                    AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.HeightProperty);
                     break;
                 case ModAnimation.AniTypeSub.TranslateX:
