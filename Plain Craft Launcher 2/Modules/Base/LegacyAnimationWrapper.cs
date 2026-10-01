@@ -160,22 +160,42 @@ public static class LegacyAnimationWrapper
             return ani;
         }
 
-        NColorFromToAnimation HandleColorAnimation(ModAnimation.AniData color)
+        IAnimation HandleColorAnimation(ModAnimation.AniData color)
         {
             var c = (ModBase.MyColor)color.value;
-            var ani = new NColorFromToAnimation
+            var objList = (object[])color.obj;
+            var reference = (string)objList[2];
+            var dependencyProperty = (DependencyProperty)objList[1];
+            AnimationBase ani;
+            if (!string.IsNullOrEmpty(reference))
             {
-                From = new NColor(0, 0, 0, 0),
-                To = new NColor((float)c.r, (float)c.g, (float)c.b, (float)c.a),
-                ValueType = AnimationValueType.Relative,
-                Duration = TimeSpan.FromMilliseconds(color.timeTotal),
-                Delay = TimeSpan.FromMilliseconds(-color.timeFinished),
-                Easing = HandleLegacyEasing(color.ease)
-            };
-            AnimationExtensions.SetTarget(ani, (DependencyObject)((object[])color.obj)[0]);
-            AnimationExtensions.SetTargetProperty(ani, (DependencyProperty)((object[])color.obj)[1]);
+                ani = new SequentialAnimationGroup([
+                    CreateColorAnimation(),
+                    new ActionAnimation(() =>
+                        ((FrameworkElement)objList[0]).SetResourceReference(dependencyProperty, reference))
+                ]);
+            }
+            else
+            {
+                ani = CreateColorAnimation();
+            }
+            AnimationExtensions.SetTarget(ani, (DependencyObject)objList[0]);
+            AnimationExtensions.SetTargetProperty(ani, dependencyProperty);
 
             return ani;
+
+            NColorFromToAnimation CreateColorAnimation()
+            {
+                return new NColorFromToAnimation
+                {
+                    From = new NColor(0, 0, 0, 0),
+                    To = new NColor((float)c.r, (float)c.g, (float)c.b, (float)c.a),
+                    ValueType = AnimationValueType.Relative,
+                    Duration = TimeSpan.FromMilliseconds(color.timeTotal),
+                    Delay = TimeSpan.FromMilliseconds(-color.timeFinished),
+                    Easing = HandleLegacyEasing(color.ease)
+                };
+            }
         }
 
         ActionAnimation HandleCodeAnimation(ModAnimation.AniData code)
