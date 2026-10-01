@@ -153,7 +153,8 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetTargetProperty(ani, ColumnDefinition.WidthProperty);
                     break;
                 default:
-                    throw new NotSupportedException();
+                    // 难搞
+                    return HandleOtherAnimation(number);
             }
 
             return ani;
@@ -164,7 +165,7 @@ public static class LegacyAnimationWrapper
             var c = (ModBase.MyColor)color.value;
             var ani = new NColorFromToAnimation
             {
-                From = new NColor(),
+                From = new NColor(0, 0, 0, 0),
                 To = new NColor((float)c.r, (float)c.g, (float)c.b, (float)c.a),
                 ValueType = AnimationValueType.Relative,
                 Duration = TimeSpan.FromMilliseconds(color.timeTotal),
@@ -179,13 +180,17 @@ public static class LegacyAnimationWrapper
 
         ActionAnimation HandleCodeAnimation(ModAnimation.AniData code)
         {
-            return new ActionAnimation(() => ((ThreadStart)code.value)());
+            return new ActionAnimation
+            {
+                Delay = TimeSpan.FromMilliseconds(-code.timeFinished),
+                Action = _ => ((ThreadStart)code.value)()
+            };
         }
 
         ActionAnimation HandleOtherAnimation(ModAnimation.AniData other)
         {
             var uuid = ModBase.GetUuid();
-            LogWrapper.Debug("Animation", $"出现 LegacyAnimationWrapper 未转换的动画，请及时修改。调用栈：{new StackTrace(skipFrames: 4)}");
+            LogWrapper.Debug("Animation", $"出现 LegacyAnimationWrapper 未转换的动画，请及时修改。调用栈：{Environment.NewLine}{new StackTrace(skipFrames: 4)}");
             
             return new ActionAnimation(() =>
             {

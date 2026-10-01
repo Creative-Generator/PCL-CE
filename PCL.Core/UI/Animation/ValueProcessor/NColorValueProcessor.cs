@@ -18,7 +18,7 @@ public class NColorValueProcessor : IValueProcessor<NColor>
     
     public NColor Scale(NColor value, double factor) => value * (float)factor;
     
-    public NColor DefaultValue() => new();
+    public NColor DefaultValue() => new(0, 0, 0, 0);
     
     public bool Equal(NColor value1, NColor value2) => value1 == value2;
 }
