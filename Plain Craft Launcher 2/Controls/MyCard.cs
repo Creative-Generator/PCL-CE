@@ -5,6 +5,11 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using PCL.Core.UI;
+using PCL.Core.UI.Animation;
+using PCL.Core.UI.Animation.Animatable;
+using PCL.Core.UI.Animation.Core;
+using PCL.Core.UI.Animation.Easings;
 using PCL.Core.UI.Controls;
 
 namespace PCL;
@@ -157,7 +162,8 @@ public class MyCard : AnimatedBackgroundGrid
             var rawUseAnimation = UseAnimation;
             UseAnimation = false;
             Height = SwapedHeight;
-            ModAnimation.AniStop("MyCard Height " + uuid);
+            // ModAnimation.AniStop("MyCard Height " + uuid);
+            AnimationService.CancelAnimationByName("MyCard Height " + uuid);
             isHeightAnimating = false;
             ModBase.RunInUi(() => UseAnimation = rawUseAnimation, true);
         }
@@ -192,36 +198,130 @@ public class MyCard : AnimatedBackgroundGrid
     {
         if (!HasMouseAnimation)
             return;
-        var aniList = new List<ModAnimation.AniData>();
+        // var aniList = new List<ModAnimation.AniData>();
+        // if (MainTextBlock is not null)
+        //     aniList.Add(ModAnimation.AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush2", 90));
+        // if (MainSwap is not null)
+        //     aniList.Add(ModAnimation.AaColor(MainSwap, Shape.FillProperty, "ColorBrush2", 90));
+        // aniList.AddRange(new[]
+        // {
+        //     ModAnimation.AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject4", 90),
+        //     ModAnimation.AaOpacity(MainChrome, dropShadowHoverOpacity - MainChrome.Opacity, 90)
+        // });
+        // if (!IsAnimating)
+        //     ModAnimation.AniStart(aniList, "MyCard Mouse " + uuid);
+        var aniGroup = new ParallelAnimationGroup();
+        aniGroup.Name = "MyCard Mouse " + uuid;
+        
         if (MainTextBlock is not null)
-            aniList.Add(ModAnimation.AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush2", 90));
-        if (MainSwap is not null)
-            aniList.Add(ModAnimation.AaColor(MainSwap, Shape.FillProperty, "ColorBrush2", 90));
-        aniList.AddRange(new[]
         {
-            ModAnimation.AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject4", 90),
-            ModAnimation.AaOpacity(MainChrome, dropShadowHoverOpacity - MainChrome.Opacity, 90)
-        });
+            var ani = new NColorFromToAnimation
+            {
+                To = new NColor("ColorBrush2"),
+                Duration = TimeSpan.FromMilliseconds(90)
+            };
+            AnimationExtensions.SetTarget(ani, MainTextBlock);
+            AnimationExtensions.SetTargetProperty(ani, TextBlock.ForegroundProperty);
+            aniGroup.Children.Add(ani);
+        }
+        if (MainSwap is not null)
+        {
+            var ani = new NColorFromToAnimation
+            {
+                To = new NColor("ColorBrush2"),
+                Duration = TimeSpan.FromMilliseconds(90)
+            };
+            AnimationExtensions.SetTarget(ani, MainSwap);
+            AnimationExtensions.SetTargetProperty(ani, Shape.FillProperty);
+            aniGroup.Children.Add(ani); 
+        }
+        
+        var aniC = new NColorFromToAnimation
+        {
+            To = new NColor("ColorObject4"),
+            Duration = TimeSpan.FromMilliseconds(90)
+        };
+        AnimationExtensions.SetTarget(aniC, MainChrome);
+        AnimationExtensions.SetTargetProperty(aniC, MyDropShadow.ColorProperty);
+        aniGroup.Children.Add(aniC);
+        var aniO = new DoubleFromToAnimation
+        {
+            To = dropShadowHoverOpacity,
+            Duration = TimeSpan.FromMilliseconds(90)
+        };
+        AnimationExtensions.SetTarget(aniO, MainChrome);
+        AnimationExtensions.SetTargetProperty(aniO, OpacityProperty);
+        aniGroup.Children.Add(aniO);
+
         if (!IsAnimating)
-            ModAnimation.AniStart(aniList, "MyCard Mouse " + uuid);
+        {
+            aniGroup.RunFireAndForget(EmptyAnimatable.Instance);
+        }
     }
 
     private void MyCard_MouseLeave(object sender, MouseEventArgs e)
     {
         if (!HasMouseAnimation)
             return;
-        var aniList = new List<ModAnimation.AniData>();
+        // var aniList = new List<ModAnimation.AniData>();
+        // if (MainTextBlock is not null)
+        //     aniList.Add(ModAnimation.AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush1", 90));
+        // if (MainSwap is not null)
+        //     aniList.Add(ModAnimation.AaColor(MainSwap, Shape.FillProperty, "ColorBrush1", 90));
+        // aniList.AddRange(new[]
+        // {
+        //     ModAnimation.AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject1", 90),
+        //     ModAnimation.AaOpacity(MainChrome, dropShadowIdleOpacity - MainChrome.Opacity, 90)
+        // });
+        // if (!IsAnimating)
+        //     ModAnimation.AniStart(aniList, "MyCard Mouse " + uuid);
+        var aniGroup = new ParallelAnimationGroup();
+        aniGroup.Name = "MyCard Mouse " + uuid;
+        
         if (MainTextBlock is not null)
-            aniList.Add(ModAnimation.AaColor(MainTextBlock, TextBlock.ForegroundProperty, "ColorBrush1", 90));
-        if (MainSwap is not null)
-            aniList.Add(ModAnimation.AaColor(MainSwap, Shape.FillProperty, "ColorBrush1", 90));
-        aniList.AddRange(new[]
         {
-            ModAnimation.AaColor(MainChrome, MyDropShadow.ColorProperty, "ColorObject1", 90),
-            ModAnimation.AaOpacity(MainChrome, dropShadowIdleOpacity - MainChrome.Opacity, 90)
-        });
+            var ani = new NColorFromToAnimation
+            {
+                To = new NColor("ColorBrush1"),
+                Duration = TimeSpan.FromMilliseconds(90)
+            };
+            AnimationExtensions.SetTarget(ani, MainTextBlock);
+            AnimationExtensions.SetTargetProperty(ani, TextBlock.ForegroundProperty);
+            aniGroup.Children.Add(ani);
+        }
+        if (MainSwap is not null)
+        {
+            var ani = new NColorFromToAnimation
+            {
+                To = new NColor("ColorBrush1"),
+                Duration = TimeSpan.FromMilliseconds(90)
+            };
+            AnimationExtensions.SetTarget(ani, MainSwap);
+            AnimationExtensions.SetTargetProperty(ani, Shape.FillProperty);
+            aniGroup.Children.Add(ani);
+        }
+        
+        var aniC = new NColorFromToAnimation
+        {
+            To = new NColor("ColorObject1"),
+            Duration = TimeSpan.FromMilliseconds(90)
+        };
+        AnimationExtensions.SetTarget(aniC, MainChrome);
+        AnimationExtensions.SetTargetProperty(aniC, MyDropShadow.ColorProperty);
+        aniGroup.Children.Add(aniC);
+        var aniO = new DoubleFromToAnimation
+        {
+            To = dropShadowIdleOpacity,
+            Duration = TimeSpan.FromMilliseconds(90)
+        };
+        AnimationExtensions.SetTarget(aniO, MainChrome);
+        AnimationExtensions.SetTargetProperty(aniO, OpacityProperty);
+        aniGroup.Children.Add(aniO);
+        
         if (!IsAnimating)
-            ModAnimation.AniStart(aniList, "MyCard Mouse " + uuid);
+        {
+            aniGroup.RunFireAndForget(EmptyAnimatable.Instance);
+        }
     }
 
     #region 高度改变动画
@@ -257,14 +357,28 @@ public class MyCard : AnimatedBackgroundGrid
         if (isHeightAnimating || ModMain.frmMain is null)
             return; // 避免 XAML 设计器出错
 
-        var animList = new List<ModAnimation.AniData>();
+        // var animList = new List<ModAnimation.AniData>();
+        var aniGroup = new SequentialAnimationGroup
+        {
+            Name = "MyCard Height " + uuid
+        };
         var absDelta = Math.Abs(delta);
 
         if (absDelta <= 800d)
         {
             // 短距离，直接使用 150ms 的缓动动画
-            animList.Add(ModAnimation.AaHeight(this, delta, 150,
-                ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.ExtraStrong)));
+            // animList.Add(ModAnimation.AaHeight(this, delta, 150,
+            //     ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.ExtraStrong)));
+            var ani = new DoubleFromToAnimation
+            {
+                To = delta,
+                Duration = TimeSpan.FromMilliseconds(150),
+                ValueType = AnimationValueType.Relative,
+                Easing = QuinticEaseOut.Shared
+            };
+            AnimationExtensions.SetTarget(ani, this);
+            AnimationExtensions.SetTargetProperty(ani, HeightProperty);
+            aniGroup.Children.Add(ani);
         }
         else
         {
@@ -294,25 +408,56 @@ public class MyCard : AnimatedBackgroundGrid
             }
 
             // 匀速段
-            animList.Add(ModAnimation.AaHeight(this, (absDelta - easeLength) * Math.Sign(delta),
-                (int)Math.Round((absDelta - easeLength) / initSpeed * 1000d)));
+            // animList.Add(ModAnimation.AaHeight(this, (absDelta - easeLength) * Math.Sign(delta),
+            //     (int)Math.Round((absDelta - easeLength) / initSpeed * 1000d)));
+            var ani1 = new DoubleFromToAnimation
+            {
+                To = (absDelta - easeLength) * Math.Sign(delta),
+                Duration = TimeSpan.FromMilliseconds((absDelta - easeLength) / initSpeed * 1000d),
+                ValueType = AnimationValueType.Relative
+            };
+            AnimationExtensions.SetTarget(ani1, this);
+            AnimationExtensions.SetTargetProperty(ani1, HeightProperty);
+            aniGroup.Children.Add(ani1);
             // 减速段
-            animList.Add(ModAnimation.AaHeight(this, easeLength * Math.Sign(delta), easeTime,
-                ease: new ModAnimation.AniEaseOutFluentWithInitial(initSpeed, easeTime / 1000d, easeLength),
-                after: true));
+            // animList.Add(ModAnimation.AaHeight(this, easeLength * Math.Sign(delta), easeTime,
+            //     ease: new ModAnimation.AniEaseOutFluentWithInitial(initSpeed, easeTime / 1000d, easeLength),
+            //     after: true));
+            var alpha = Math.Max((initSpeed * easeTime / 1000d) - 1d, 0d);
+            var ani2 = new DoubleFromToAnimation
+            {
+                To = easeLength * Math.Sign(delta),
+                Duration = TimeSpan.FromMilliseconds(easeTime),
+                ValueType = AnimationValueType.Relative,
+                Easing = new CustomEasing
+                {
+                    EasingFunction = progress => (alpha + 1d) * progress / (1d + alpha * progress)
+                }
+            };
+            AnimationExtensions.SetTarget(ani2, this);
+            AnimationExtensions.SetTargetProperty(ani2, HeightProperty);
+            aniGroup.Children.Add(ani2);
         }
 
-        animList.Add(ModAnimation.AaCode(() =>
+        // animList.Add(ModAnimation.AaCode(() =>
+        // {
+        //     isHeightAnimating = false;
+        //     Height = actualUsedHeight;
+        //     if (IsSwapped && SwapControl is not null)
+        //         SwapControl.Visibility = Visibility.Collapsed;
+        // }, after: true));
+        aniGroup.Children.Add(new ActionAnimation(() =>
         {
             isHeightAnimating = false;
             Height = actualUsedHeight;
             if (IsSwapped && SwapControl is not null)
                 SwapControl.Visibility = Visibility.Collapsed;
-        }, after: true));
-        ModAnimation.AniStart(animList, "MyCard Height " + uuid);
+        }));
         isHeightAnimating = true;
         actualUsedHeight = IsSwapped ? SwapedHeight : Height;
         Height = previousHeight;
+        // ModAnimation.AniStart(animList, "MyCard Height " + uuid);
+        aniGroup.RunFireAndForget(EmptyAnimatable.Instance);
     }
 
     /// <summary>
@@ -321,7 +466,8 @@ public class MyCard : AnimatedBackgroundGrid
     public void TriggerForceResize()
     {
         Height = IsSwapped ? SwapedHeight : double.NaN;
-        ModAnimation.AniStop("MyCard Height " + uuid);
+        // ModAnimation.AniStop("MyCard Height " + uuid);
+        AnimationService.CancelAnimationByName("MyCard Height " + uuid);
         isHeightAnimating = false;
     }
 
@@ -373,11 +519,21 @@ public class MyCard : AnimatedBackgroundGrid
 
             // 根据折叠状态旋转箭头图标
             // 折叠时箭头指向右侧或向上（根据SwapLogoRight设置），展开时指向下方
-            ModAnimation.AniStart(
-                ModAnimation.AaRotateTransform(MainSwap,
-                    (field ? SwapLogoRight ? 270 : 0 : 180) - ((RotateTransform)MainSwap.RenderTransform).Angle,
-                    250, ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.ExtraStrong)),
-                "MyCard Swap " + uuid, true);
+            // ModAnimation.AniStart(
+            //     ModAnimation.AaRotateTransform(MainSwap,
+            //         (field ? SwapLogoRight ? 270 : 0 : 180) - ((RotateTransform)MainSwap.RenderTransform).Angle,
+            //         250, ease: new ModAnimation.AniEaseOutFluent(ModAnimation.AniEasePower.ExtraStrong)),
+            //     "MyCard Swap " + uuid, true);
+            var ani = new DoubleFromToAnimation
+            {
+                Name = "MyCard Swap " + uuid,
+                From = ((RotateTransform)MainSwap.RenderTransform).Angle,
+                To = field ? (SwapLogoRight ? 270 : 0) : 180,
+                Duration = TimeSpan.FromMilliseconds(250),
+                Easing = QuinticEaseOut.Shared
+            };
+            var animatable = new WpfAnimatable(MainSwap.RenderTransform, RotateTransform.AngleProperty);
+            ani.RunFireAndForget(animatable);
         }
     }
 

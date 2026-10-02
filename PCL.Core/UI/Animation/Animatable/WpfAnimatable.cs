@@ -15,11 +15,13 @@ public sealed class WpfAnimatable(DependencyObject owner, DependencyProperty? pr
     {
         DependencyProperty? actualProperty;
 
-        if (Property == FrameworkElement.WidthProperty)
+        if (Property == FrameworkElement.WidthProperty &&
+            double.IsNaN(Owner.GetValue(FrameworkElement.WidthProperty) as double? ?? double.NaN))
         {
             actualProperty = FrameworkElement.ActualWidthProperty;
         }
-        else if (Property == FrameworkElement.HeightProperty)
+        else if (Property == FrameworkElement.HeightProperty &&
+                 double.IsNaN(Owner.GetValue(FrameworkElement.HeightProperty) as double? ?? double.NaN))
         {
             actualProperty = FrameworkElement.ActualHeightProperty;
         }
