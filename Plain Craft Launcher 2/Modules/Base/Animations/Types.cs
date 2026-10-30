@@ -83,7 +83,7 @@ public static partial class Animations
     private static readonly List<AniGroupEntry> _aniOrder = [];
 
     // 当前帧内启动的动画组，在下一帧开始时发布。
-    private static readonly List<AniGroupEntry> _aniPendingAdds = [];
+    public static readonly List<AniGroupEntry> _aniPendingAdds = [];
 
     private static readonly Lock _aniGroupsLock = new();
     private static bool _aniOrderDirty;

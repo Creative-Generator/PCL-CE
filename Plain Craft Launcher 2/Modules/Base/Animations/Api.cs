@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Diagnostics;
+using PCL.Modules.Base.Animations;
 
 namespace PCL;
 
@@ -25,6 +26,18 @@ public static partial class Animations
         if (string.IsNullOrEmpty(name))
             name = newEntry.Uuid.ToString();
         newEntry.Key = name;
+
+        LegacyAnimationWrapper.Start(name, newEntry);
+    }
+
+    internal static void AniStartLegacyCore(AniData aniGroup, string name)
+    {
+        var newEntry = new AniGroupEntry
+        {
+            data = [aniGroup],
+            startTick = Stopwatch.GetTimestamp(),
+            Key = name
+        };
 
         lock (_aniGroupsLock)
         {
@@ -57,13 +70,15 @@ public static partial class Animations
     /// <param name="name">Name passed to <c>AniStart</c>. Unknown names are ignored.</param>
     public static void AniStop(string name)
     {
-        lock (_aniGroupsLock)
-        {
-            if (!_aniByName.Remove(name, out var entry))
-                return;
-            entry.Dead = true;
-            _aniOrderDirty = true;
-        }
+        // lock (_aniGroupsLock)
+        // {
+        //     if (!_aniByName.Remove(name, out var entry))
+        //         return;
+        //     entry.Dead = true;
+        //     _aniOrderDirty = true;
+        // }
+        
+        LegacyAnimationWrapper.Stop(name);
     }
 
     /// <summary>
@@ -73,7 +88,9 @@ public static partial class Animations
     /// <returns><see langword="true" /> while the group is registered, including frames where it is only waiting on a delay.</returns>
     public static bool AniIsRun(string name)
     {
-        lock (_aniGroupsLock)
-            return _aniByName.ContainsKey(name);
+        // lock (_aniGroupsLock)
+        //     return _aniByName.ContainsKey(name);
+        
+        return LegacyAnimationWrapper.IsRunning(name);
     }
 }

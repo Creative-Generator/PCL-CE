@@ -247,7 +247,7 @@ public class MyCard : AnimatedBackgroundGrid
         aniGroup.Children.Add(aniC);
         var aniO = new DoubleFromToAnimation
         {
-            To = dropShadowHoverOpacity,
+            To = DropShadowHoverOpacity,
             Duration = TimeSpan.FromMilliseconds(90)
         };
         AnimationExtensions.SetTarget(aniO, MainChrome);
@@ -312,7 +312,7 @@ public class MyCard : AnimatedBackgroundGrid
         aniGroup.Children.Add(aniC);
         var aniO = new DoubleFromToAnimation
         {
-            To = dropShadowIdleOpacity,
+            To = DropShadowIdleOpacity,
             Duration = TimeSpan.FromMilliseconds(90)
         };
         AnimationExtensions.SetTarget(aniO, MainChrome);
@@ -341,7 +341,7 @@ public class MyCard : AnimatedBackgroundGrid
             return;
         var deltaHeight = (IsSwapped ? SwapedHeight : e.NewSize.Height) - e.PreviousSize.Height;
         // 卡片的进入时动画已被页面通用切换动画替代
-        if (e.PreviousSize.Height == 0d || __isHeightAnimating || Math.Abs(deltaHeight) < 1d ||
+        if (e.PreviousSize.Height == 0d || _isHeightAnimating || Math.Abs(deltaHeight) < 1d ||
             ActualHeight == 0d)
             return;
         StartHeightAnimation(deltaHeight, e.PreviousSize.Height, false);

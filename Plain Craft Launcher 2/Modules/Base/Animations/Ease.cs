@@ -40,14 +40,18 @@ public static partial class Animations
         AniEase easeOut,
         double easeInPercent = 0.5d) : AniEase
     {
+        public AniEase EaseIn { get; } = easeIn;
+        public AniEase EaseOut { get; } = easeOut;
+        public double EaseInPercent { get; } = easeInPercent;
+
         public override double GetValue(double t)
         {
-            if (t < easeInPercent)
-                return easeInPercent * easeIn.GetValue(t / easeInPercent);
+            if (t < EaseInPercent)
+                return EaseInPercent * EaseIn.GetValue(t / EaseInPercent);
 
-            return (1d - easeInPercent)
-                * easeOut.GetValue((t - easeInPercent) / (1d - easeInPercent))
-                + easeInPercent;
+            return (1d - EaseInPercent)
+                * EaseOut.GetValue((t - EaseInPercent) / (1d - EaseInPercent))
+                + EaseInPercent;
         }
     }
 
@@ -72,9 +76,11 @@ public static partial class Animations
     /// </summary>
     public class AniEaseInFluent(AniEasePower power = AniEasePower.Middle) : AniEase
     {
+        public AniEasePower Power { get; } = power;
+
         public override double GetValue(double t)
         {
-            return Math.Pow(Common.MathClamp(t, 0d, 1d), (double)power);
+            return Math.Pow(Common.MathClamp(t, 0d, 1d), (double)Power);
         }
     }
 
@@ -83,9 +89,11 @@ public static partial class Animations
     /// </summary>
     public class AniEaseOutFluent(AniEasePower power = AniEasePower.Middle) : AniEase
     {
+        public AniEasePower Power { get; } = power;
+
         public override double GetValue(double t)
         {
-            return 1d - Math.Pow(Common.MathClamp(1d - t, 0d, 1d), (double)power);
+            return 1d - Math.Pow(Common.MathClamp(1d - t, 0d, 1d), (double)Power);
         }
     }
 
@@ -96,6 +104,8 @@ public static partial class Animations
         AniEasePower power = AniEasePower.Middle,
         double middle = 0.5d) : AniEase
     {
+        public AniEasePower Power { get; } = power;
+
         private readonly AniEaseInout _ease = new(
             new AniEaseInFluent(power),
             new AniEaseOutFluent(power),
@@ -142,6 +152,7 @@ public static partial class Animations
     /// </summary>
     public class AniEaseInBack(AniEasePower power = AniEasePower.Middle) : AniEase
     {
+        public AniEasePower Power { get; } = power;
         private readonly double _p = 3d - (double)power * 0.5d;
 
         public override double GetValue(double t)
@@ -156,6 +167,7 @@ public static partial class Animations
     /// </summary>
     public class AniEaseOutBack(AniEasePower power = AniEasePower.Middle) : AniEase
     {
+        public AniEasePower Power { get; } = power;
         private readonly double _p = 3d - (double)power * 0.5d;
 
         public override double GetValue(double t)

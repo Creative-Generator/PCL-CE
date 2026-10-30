@@ -10,23 +10,23 @@ using PCL.Core.UI.Animation.Core;
 using PCL.Core.UI.Animation.Easings;
 using PCL.Core.Utils;
 
-namespace PCL.Modules.Base;
+namespace PCL.Modules.Base.Animations;
 
 public static class LegacyAnimationWrapper
 {
-    public static void Start(string name, ModAnimation.AniGroupEntry entry)
+    public static void Start(string name, PCL.Animations.AniGroupEntry entry)
     {
         var ani = HandleLegacyAnimation(entry);
         ani.Name = name;
-        
+
         ani.RunFireAndForget(EmptyAnimatable.Instance);
     }
-    
+
     public static void Stop(string name) => AnimationService.CancelAnimationByName(name);
 
     public static bool IsRunning(string name) => AnimationService.IsRunningByName(name);
 
-    private static IAnimation HandleLegacyAnimation(ModAnimation.AniGroupEntry entry)
+    private static IAnimation HandleLegacyAnimation(PCL.Animations.AniGroupEntry entry)
     {
         var data = entry.data;
 
@@ -39,26 +39,26 @@ public static class LegacyAnimationWrapper
                 group.Children.Add(new ParallelAnimationGroup(animations));
                 animations.Clear();
             }
-            
+
             var animation = HandleSingleLegacyAnimation(ani);
             animations.Add(animation);
         }
-        
+
         group.Children.Add(new ParallelAnimationGroup(animations));
         return group;
     }
 
-    private static IAnimation HandleSingleLegacyAnimation(ModAnimation.AniData data)
+    private static IAnimation HandleSingleLegacyAnimation(PCL.Animations.AniData data)
     {
         return data.typeMain switch
         {
-            ModAnimation.AniType.Number => HandleNumberAnimation(data),
-            ModAnimation.AniType.Color => HandleColorAnimation(data),
-            ModAnimation.AniType.Code => HandleCodeAnimation(data),
+            PCL.Animations.AniType.Number => HandleNumberAnimation(data),
+            PCL.Animations.AniType.Color => HandleColorAnimation(data),
+            PCL.Animations.AniType.Code => HandleCodeAnimation(data),
             _ => HandleOtherAnimation(data)
         };
 
-        IAnimation HandleNumberAnimation(ModAnimation.AniData number)
+        IAnimation HandleNumberAnimation(PCL.Animations.AniData number)
         {
             AnimationBase ani = new DoubleFromToAnimation
             {
@@ -72,7 +72,7 @@ public static class LegacyAnimationWrapper
 
             switch (number.typeSub)
             {
-                case ModAnimation.AniTypeSub.X:
+                case PCL.Animations.AniTypeSub.X:
                     ani = new XFromToAnimation
                     {
                         From = 0,
@@ -85,7 +85,7 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.TagProperty);
                     break;
-                case ModAnimation.AniTypeSub.Y:
+                case PCL.Animations.AniTypeSub.Y:
                     ani = new YFromToAnimation
                     {
                         From = 0,
@@ -98,35 +98,35 @@ public static class LegacyAnimationWrapper
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.TagProperty);
                     break;
-                case ModAnimation.AniTypeSub.Opacity:
+                case PCL.Animations.AniTypeSub.Opacity:
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, UIElement.OpacityProperty);
                     break;
-                case ModAnimation.AniTypeSub.Width:
+                case PCL.Animations.AniTypeSub.Width:
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.WidthProperty);
                     break;
-                case ModAnimation.AniTypeSub.Height:
+                case PCL.Animations.AniTypeSub.Height:
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
                     AnimationExtensions.SetTargetProperty(ani, FrameworkElement.HeightProperty);
                     break;
-                case ModAnimation.AniTypeSub.TranslateX:
+                case PCL.Animations.AniTypeSub.TranslateX:
                     var transformX =
                         ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
                     AnimationExtensions.SetTarget(ani, transformX);
                     AnimationExtensions.SetTargetProperty(ani, TranslateTransform.XProperty);
                     break;
-                case ModAnimation.AniTypeSub.TranslateY:
+                case PCL.Animations.AniTypeSub.TranslateY:
                     var transformY =
                         ControlHelper.GetOrCreateTransform<TranslateTransform>((DependencyObject)number.obj);
                     AnimationExtensions.SetTarget(ani, transformY);
                     AnimationExtensions.SetTargetProperty(ani, TranslateTransform.YProperty);
                     break;
-                case ModAnimation.AniTypeSub.Double:
+                case PCL.Animations.AniTypeSub.Double:
                     AnimationExtensions.SetTarget(ani, (DependencyObject)((object[])number.obj)[0]);
                     AnimationExtensions.SetTargetProperty(ani, (DependencyProperty)((object[])number.obj)[1]);
                     break;
-                case ModAnimation.AniTypeSub.DoubleParam:
+                case PCL.Animations.AniTypeSub.DoubleParam:
                     // 最傻逼的一种动画方式
                     ani = new DoubleParamFromToAnimation
                     {
@@ -140,7 +140,7 @@ public static class LegacyAnimationWrapper
                     };
                     AnimationExtensions.SetAnimatable(ani, EmptyAnimatable.Instance);
                     break;
-                case ModAnimation.AniTypeSub.GridLengthWidth:
+                case PCL.Animations.AniTypeSub.GridLengthWidth:
                     // 天马行空...
                     ani = new GridLengthFromToAnimation
                     {
@@ -162,9 +162,9 @@ public static class LegacyAnimationWrapper
             return ani;
         }
 
-        IAnimation HandleColorAnimation(ModAnimation.AniData color)
+        IAnimation HandleColorAnimation(PCL.Animations.AniData color)
         {
-            var c = (ModBase.MyColor)color.value;
+            var c = (Common.MyColor)color.value;
             var objList = (object[])color.obj;
             var reference = (string)objList[2];
             var dependencyProperty = (DependencyProperty)objList[1];
@@ -181,6 +181,7 @@ public static class LegacyAnimationWrapper
             {
                 ani = CreateColorAnimation();
             }
+
             AnimationExtensions.SetTarget(ani, (DependencyObject)objList[0]);
             AnimationExtensions.SetTargetProperty(ani, dependencyProperty);
 
@@ -200,7 +201,7 @@ public static class LegacyAnimationWrapper
             }
         }
 
-        ActionAnimation HandleCodeAnimation(ModAnimation.AniData code)
+        ActionAnimation HandleCodeAnimation(PCL.Animations.AniData code)
         {
             return new ActionAnimation
             {
@@ -209,99 +210,87 @@ public static class LegacyAnimationWrapper
             };
         }
 
-        ActionAnimation HandleOtherAnimation(ModAnimation.AniData other)
+        ActionAnimation HandleOtherAnimation(PCL.Animations.AniData other)
         {
-            var uuid = ModBase.GetUuid();
-            LogWrapper.Debug("Animation", $"出现 LegacyAnimationWrapper 未转换的动画，请及时修改。调用栈：{Environment.NewLine}{new StackTrace(skipFrames: 4)}");
-            
-            return new ActionAnimation(() =>
-            {
-                ModAnimation.aniGroups.TryAdd($"LegacyAnimation_{uuid}", new ModAnimation.AniGroupEntry
-                {
-                    data = [other],
-                    startTick = TimeUtils.GetTimeTick(),
-                    Uuid = uuid
-                });
-            });
+            var uuid = Common.GetUuid();
+            LogWrapper.Debug("Animation",
+                $"出现 LegacyAnimationWrapper 未转换的动画，请及时修改。调用栈：{Environment.NewLine}{new StackTrace(skipFrames: 4)}");
+
+            return new ActionAnimation(() => { PCL.Animations.AniStartLegacyCore(other, $"LegacyAnimation_{uuid}"); });
         }
     }
 
-    private static IEasing HandleLegacyEasing(ModAnimation.AniEase ease)
+    private static IEasing HandleLegacyEasing(PCL.Animations.AniEase ease)
     {
         return ease switch
         {
-            ModAnimation.AniEaseInout inout => HandleCombinedEasing(inout),
-            ModAnimation.AniEaseLinear => LinearEasing.Shared,
-            ModAnimation.AniEaseInFluent f => HandleFluentEasing(f),
-            ModAnimation.AniEaseOutFluent f => HandleFluentEasing(f),
-            ModAnimation.AniEaseInoutFluent f => HandleFluentEasing(f),
-            ModAnimation.AniEaseInBack b => HandleBackEasing(b),
-            ModAnimation.AniEaseOutBack b => HandleBackEasing(b),
+            PCL.Animations.AniEaseInout inout => new CombinedEasing(
+                HandleLegacyEasing(inout.EaseIn),
+                HandleLegacyEasing(inout.EaseOut),
+                inout.EaseInPercent),
+            PCL.Animations.AniEaseLinear => LinearEasing.Shared,
+            PCL.Animations.AniEaseInFluent fluent => HandleFluentEasing(fluent),
+            PCL.Animations.AniEaseOutFluent fluent => HandleFluentEasing(fluent),
+            PCL.Animations.AniEaseInoutFluent fluent => HandleFluentEasing(fluent),
+            PCL.Animations.AniEaseInBack back => HandleBackEasing(back),
+            PCL.Animations.AniEaseOutBack back => HandleBackEasing(back),
             _ => CreateCustomEasing(ease)
         };
 
-        CombinedEasing HandleCombinedEasing(ModAnimation.AniEaseInout combined)
-        {
-            return new CombinedEasing(
-                HandleLegacyEasing(combined.easeIn),
-                HandleLegacyEasing(combined.easeOut),
-                combined.easeInPercent);
-        }
-
-        IEasing HandleFluentEasing(ModAnimation.AniEase fluent)
+        IEasing HandleFluentEasing(PCL.Animations.AniEase fluent)
         {
             return fluent switch
             {
-                ModAnimation.AniEaseInFluent fIn => fIn.p switch
+                PCL.Animations.AniEaseInFluent easeIn => easeIn.Power switch
                 {
-                    ModAnimation.AniEasePower.Weak => QuadEaseIn.Shared,
-                    ModAnimation.AniEasePower.Middle => CubicEaseIn.Shared,
-                    ModAnimation.AniEasePower.Strong => QuarticEaseIn.Shared,
-                    ModAnimation.AniEasePower.ExtraStrong => QuinticEaseIn.Shared,
+                    PCL.Animations.AniEasePower.Weak => QuadEaseIn.Shared,
+                    PCL.Animations.AniEasePower.Middle => CubicEaseIn.Shared,
+                    PCL.Animations.AniEasePower.Strong => QuarticEaseIn.Shared,
+                    PCL.Animations.AniEasePower.ExtraStrong => QuinticEaseIn.Shared,
                     _ => CreateCustomEasing(fluent)
                 },
-                ModAnimation.AniEaseOutFluent fOut => fOut.p switch
+                PCL.Animations.AniEaseOutFluent easeOut => easeOut.Power switch
                 {
-                    ModAnimation.AniEasePower.Weak => QuadEaseOut.Shared,
-                    ModAnimation.AniEasePower.Middle => CubicEaseOut.Shared,
-                    ModAnimation.AniEasePower.Strong => QuarticEaseOut.Shared,
-                    ModAnimation.AniEasePower.ExtraStrong => QuinticEaseOut.Shared,
+                    PCL.Animations.AniEasePower.Weak => QuadEaseOut.Shared,
+                    PCL.Animations.AniEasePower.Middle => CubicEaseOut.Shared,
+                    PCL.Animations.AniEasePower.Strong => QuarticEaseOut.Shared,
+                    PCL.Animations.AniEasePower.ExtraStrong => QuinticEaseOut.Shared,
                     _ => CreateCustomEasing(fluent)
                 },
-                ModAnimation.AniEaseInoutFluent fInout => fInout.p switch
+                PCL.Animations.AniEaseInoutFluent easeInout => easeInout.Power switch
                 {
-                    ModAnimation.AniEasePower.Weak => QuadEaseInOut.Shared,
-                    ModAnimation.AniEasePower.Middle => CubicEaseInOut.Shared,
-                    ModAnimation.AniEasePower.Strong => QuarticEaseInOut.Shared,
-                    ModAnimation.AniEasePower.ExtraStrong => QuinticEaseInOut.Shared,
+                    PCL.Animations.AniEasePower.Weak => QuadEaseInOut.Shared,
+                    PCL.Animations.AniEasePower.Middle => CubicEaseInOut.Shared,
+                    PCL.Animations.AniEasePower.Strong => QuarticEaseInOut.Shared,
+                    PCL.Animations.AniEasePower.ExtraStrong => QuinticEaseInOut.Shared,
                     _ => CreateCustomEasing(fluent)
                 },
-                _ => throw new NotSupportedException($"不支持的缓动类型: {fluent.GetType().Name}")
+                _ => CreateCustomEasing(fluent)
             };
         }
 
-        IEasing HandleBackEasing(ModAnimation.AniEase back)
+        IEasing HandleBackEasing(PCL.Animations.AniEase back)
         {
             return back switch
             {
-                ModAnimation.AniEaseInBack bIn => new BackEaseWithPowerIn(HandleLegacyEasePower(bIn.p)),
-                ModAnimation.AniEaseOutBack bOut => new BackEaseWithPowerOut(HandleLegacyEasePower(bOut.p)),
-                _ => throw new NotSupportedException($"不支持的缓动类型: {back.GetType().Name}")
+                PCL.Animations.AniEaseInBack easeIn => new BackEaseWithPowerIn(HandleLegacyEasePower(easeIn.Power)),
+                PCL.Animations.AniEaseOutBack easeOut => new BackEaseWithPowerOut(HandleLegacyEasePower(easeOut.Power)),
+                _ => CreateCustomEasing(back)
             };
         }
 
-        EasePower HandleLegacyEasePower(ModAnimation.AniEasePower easePower)
+        EasePower HandleLegacyEasePower(PCL.Animations.AniEasePower power)
         {
-            return easePower switch
+            return power switch
             {
-                ModAnimation.AniEasePower.Weak => EasePower.Weak,
-                ModAnimation.AniEasePower.Middle => EasePower.Middle,
-                ModAnimation.AniEasePower.Strong => EasePower.Strong,
-                ModAnimation.AniEasePower.ExtraStrong => EasePower.ExtraStrong,
-                _ => throw new NotSupportedException($"不支持的缓动能量: {easePower}")
+                PCL.Animations.AniEasePower.Weak => EasePower.Weak,
+                PCL.Animations.AniEasePower.Middle => EasePower.Middle,
+                PCL.Animations.AniEasePower.Strong => EasePower.Strong,
+                PCL.Animations.AniEasePower.ExtraStrong => EasePower.ExtraStrong,
+                _ => throw new NotSupportedException($"不支持的缓动能量: {power}")
             };
         }
 
-        CustomEasing CreateCustomEasing(ModAnimation.AniEase e) => new() { EasingFunction = e.GetValue };
+        CustomEasing CreateCustomEasing(PCL.Animations.AniEase e) => new() { EasingFunction = e.GetValue };
     }
 }
