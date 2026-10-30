@@ -22,7 +22,7 @@ public partial class PageSetupFeedback : IPageView
         Upnext = 8550609020L
     }
 
-    public ModLoader.LoaderTask<bool, List<Feedback>> Loader;
+    public Loading.LoaderTask<bool, List<Feedback>> Loader;
 
     private readonly PageSetupFeedbackViewModel _vm = new();
     private bool _refreshed;
@@ -44,7 +44,7 @@ public partial class PageSetupFeedback : IPageView
     {
         InitializeComponent();
         DataContext = _vm;
-        Loader = new ModLoader.LoaderTask<bool, List<Feedback>>("FeedbackList", FeedbackListGet);
+        Loader = new Loading.LoaderTask<bool, List<Feedback>>("FeedbackList", FeedbackListGet);
         Loaded += PageOtherFeedback_Loaded;
         Unloaded += PageOtherFeedback_Unloaded;
     }
@@ -70,7 +70,7 @@ public partial class PageSetupFeedback : IPageView
         PageLoaderInit(Load, PanLoad, PanContent, PanInfo, Loader, _ => RefreshList());
     }
 
-    public void FeedbackListGet(ModLoader.LoaderTask<bool, List<Feedback>> task)
+    public void FeedbackListGet(Loading.LoaderTask<bool, List<Feedback>> task)
     {
         task.output = _vm.FetchFeedbackList();
     }
@@ -82,7 +82,7 @@ public partial class PageSetupFeedback : IPageView
             Title = item.Title,
             Type = MyListItem.CheckType.Clickable,
             Info = $"{item.User} | {Lang.Date(item.Time)}",
-            Logo = ModBase.pathImage + logo,
+            Logo = Common.PathImage + logo,
             Tags = item.Type
         };
 
@@ -94,7 +94,7 @@ public partial class PageSetupFeedback : IPageView
     private void ShowFeedbackDetail(Feedback item)
     {
         var timeSpanText = Lang.TimeSpan(item.Time - DateTime.Now);
-        switch (ModMain.MyMsgBoxMarkdown(
+        switch (Launcher.MyMsgBoxMarkdown(
                     Lang.Text("Setup.Feedback.Item.Submitter", item.User, timeSpanText) + "\n" +
                     Lang.Text("Setup.Feedback.Item.Type", item.Type) + "\n\n" +
                     item.Content,
@@ -102,7 +102,7 @@ public partial class PageSetupFeedback : IPageView
         {
             case 2:
             {
-                ModBase.OpenWebsite(item.Url);
+                Common.OpenWebsite(item.Url);
                 break;
             }
         }

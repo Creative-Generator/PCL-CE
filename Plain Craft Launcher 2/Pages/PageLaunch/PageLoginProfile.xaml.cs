@@ -31,7 +31,7 @@ public partial class PageLoginProfile : IPageView
     public void Reload()
     {
         _vm.ReloadCommand.Execute(null);
-        ModMain.frmLoginProfileSkin = null;
+        Launcher.frmLoginProfileSkin = null;
     }
 
     public void RefreshProfileList() => _vm.ReloadCommand.Execute(null);
@@ -55,7 +55,7 @@ public partial class PageLoginProfile : IPageView
         {
             Profile = profile;
             Info = ProfileUi.GetProfileInfo(profile);
-            var logoPath = ModBase.pathTemp + $@"Cache\Skin\Head\{profile.SkinHeadId}.png";
+            var logoPath = Common.pathTemp + $@"Cache\Skin\Head\{profile.SkinHeadId}.png";
             if (File.Exists(logoPath) && new FileInfo(logoPath).Length != 0L)
             {
                 Logo = logoPath;
@@ -79,8 +79,8 @@ public partial class PageLoginProfile : IPageView
     {
         if (sender is not MyListItem { DataContext: ProfileItem item }) return;
         _vm.Select(item);
-        ModMain.frmLaunchLeft.RefreshPage(true);
-        ModMain.frmLaunchLeft.BtnLaunch.IsEnabled = true;
+        Launcher.frmLaunchLeft.RefreshPage(true);
+        Launcher.frmLaunchLeft.BtnLaunch.IsEnabled = true;
     }
 
     private void ProfileContMenuBuild(MyListItem sender, EventArgs e)
