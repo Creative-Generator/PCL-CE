@@ -83,6 +83,7 @@ public static class LegacyAnimationWrapper
                         Easing = HandleLegacyEasing(number.ease)
                     };
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
+                    AnimationExtensions.SetTargetProperty(ani, FrameworkElement.TagProperty);
                     break;
                 case ModAnimation.AniTypeSub.Y:
                     ani = new YFromToAnimation
@@ -95,6 +96,7 @@ public static class LegacyAnimationWrapper
                         Easing = HandleLegacyEasing(number.ease)
                     };
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
+                    AnimationExtensions.SetTargetProperty(ani, FrameworkElement.TagProperty);
                     break;
                 case ModAnimation.AniTypeSub.Opacity:
                     AnimationExtensions.SetTarget(ani, (DependencyObject)number.obj);
@@ -256,7 +258,7 @@ public static class LegacyAnimationWrapper
                     ModAnimation.AniEasePower.Middle => CubicEaseIn.Shared,
                     ModAnimation.AniEasePower.Strong => QuarticEaseIn.Shared,
                     ModAnimation.AniEasePower.ExtraStrong => QuinticEaseIn.Shared,
-                    _ => throw new NotSupportedException($"不支持的缓动能量: {fIn.p}")
+                    _ => CreateCustomEasing(fluent)
                 },
                 ModAnimation.AniEaseOutFluent fOut => fOut.p switch
                 {
@@ -264,7 +266,7 @@ public static class LegacyAnimationWrapper
                     ModAnimation.AniEasePower.Middle => CubicEaseOut.Shared,
                     ModAnimation.AniEasePower.Strong => QuarticEaseOut.Shared,
                     ModAnimation.AniEasePower.ExtraStrong => QuinticEaseOut.Shared,
-                    _ => throw new NotSupportedException($"不支持的缓动能量: {fOut.p}")
+                    _ => CreateCustomEasing(fluent)
                 },
                 ModAnimation.AniEaseInoutFluent fInout => fInout.p switch
                 {
@@ -272,7 +274,7 @@ public static class LegacyAnimationWrapper
                     ModAnimation.AniEasePower.Middle => CubicEaseInOut.Shared,
                     ModAnimation.AniEasePower.Strong => QuarticEaseInOut.Shared,
                     ModAnimation.AniEasePower.ExtraStrong => QuinticEaseInOut.Shared,
-                    _ => throw new NotSupportedException($"不支持的缓动能量: {fInout.p}")
+                    _ => CreateCustomEasing(fluent)
                 },
                 _ => throw new NotSupportedException($"不支持的缓动类型: {fluent.GetType().Name}")
             };
