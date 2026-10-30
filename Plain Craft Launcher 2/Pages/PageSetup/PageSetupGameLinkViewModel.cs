@@ -53,16 +53,16 @@ public partial class PageSetupGameLinkViewModel : ViewModelBase
         try
         {
             Config.Link.Reset();
-            ModBase.Log("[Setup] 已初始化联机页设置");
+            Common.Log("[Setup] 已初始化联机页设置");
             HintService.Hint(Lang.Text("Setup.GameLink.Initialized"), HintType.Success, false);
             Reload();
         }
         catch (Exception ex)
         {
-            ModBase.Log(
+            Common.Log(
                 ex,
                 Lang.Text("Setup.GameLink.Error.InitFailed"),
-                ModBase.LogLevel.Msgbox,
+                Common.LogLevel.Msgbox,
                 userSummary: Lang.Text("Setup.GameLink.Error.InitFailed"));
         }
 
@@ -82,10 +82,10 @@ public partial class PageSetupGameLinkViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ModBase.Log(
+            Common.Log(
                 ex,
                 Lang.Text("Setup.GameLink.Error.ConfigChangeFailed"),
-                ModBase.LogLevel.Hint,
+                Common.LogLevel.Hint,
                 userSummary: Lang.Text("Setup.GameLink.Error.ConfigChangeFailed"));
         }
     }
@@ -110,9 +110,9 @@ public partial class PageSetupGameLinkViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex,
+            Common.Log(ex,
                 "[Link] 获取网络测试结果失败",
-                ModBase.LogLevel.Hint,
+                Common.LogLevel.Hint,
                 userSummary: Lang.Text("Setup.GameLink.Error.NetworkTestFailed"));
         }
         finally

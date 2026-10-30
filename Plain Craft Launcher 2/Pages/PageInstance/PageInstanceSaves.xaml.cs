@@ -55,9 +55,9 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
 
     public static void Refresh()
     {
-        if (ModMain.frmInstanceSaves is not null)
-            ModMain.frmInstanceSaves.Reload();
-        ModMain.frmInstanceLeft.ItemWorld.Checked = true;
+        if (Launcher.frmInstanceSaves is not null)
+            Launcher.frmInstanceSaves.Reload();
+        Launcher.frmInstanceLeft.ItemWorld.Checked = true;
         HintService.Hint(Lang.Text("Instance.Saves.Status.Refreshing"), log: false);
     }
 
@@ -77,7 +77,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
 
     public void Reload()
     {
-        ModAnimation.AniBeginControl();
+        Animations.AniBeginControl();
         try
         {
             PanBack.ScrollToHome();
@@ -85,7 +85,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         }
         finally
         {
-            ModAnimation.AniEndControl();
+            Animations.AniEndControl();
         }
     }
 
@@ -101,7 +101,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Instance.Saves.LoadListFailed"), ModBase.LogLevel.Hint,
+            Common.Log(ex, Lang.Text("Instance.Saves.LoadListFailed"), Common.LogLevel.Hint,
                 userSummary: Lang.Text("Instance.Saves.LoadListFailed"));
         }
 
@@ -122,7 +122,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), ModBase.LogLevel.Hint,
+            Common.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), Common.LogLevel.Hint,
                 userSummary: Lang.Text("Instance.Saves.RefreshUiFailed"));
         }
     }
@@ -138,7 +138,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), ModBase.LogLevel.Hint,
+            Common.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), Common.LogLevel.Hint,
                 userSummary: Lang.Text("Instance.Saves.RefreshUiFailed"));
         }
     }
@@ -147,19 +147,19 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         try
         {
-            ModAnimation.AniBeginControl();
+            Animations.AniBeginControl();
             PanList.Children.Clear();
             foreach (var entry in _vm.Saves)
                 PanList.Children.Add(CreateSaveItem(entry));
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), ModBase.LogLevel.Hint,
+            Common.Log(ex, Lang.Text("Instance.Saves.RefreshUiFailed"), Common.LogLevel.Hint,
                 userSummary: Lang.Text("Instance.Saves.RefreshUiFailed"));
         }
         finally
         {
-            ModAnimation.AniEndControl();
+            Animations.AniEndControl();
         }
     }
 
@@ -180,7 +180,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             SvgIcon = "lucide/folder-open",
             ToolTip = Lang.Text("Common.Action.Open")
         };
-        btnOpen.Click += (_, _) => ModBase.OpenExplorer(curFolder);
+        btnOpen.Click += (_, _) => Common.OpenExplorer(curFolder);
 
         var btnDelete = new MyIconButton
         {
@@ -204,7 +204,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             }
             catch (Exception ex)
             {
-                ModBase.Log(ex, Lang.Text("Instance.Saves.DeleteFailed"), ModBase.LogLevel.Hint,
+                Common.Log(ex, Lang.Text("Instance.Saves.DeleteFailed"), Common.LogLevel.Hint,
                     userSummary: Lang.Text("Instance.Saves.DeleteFailed"));
                 Reload();
             }
@@ -239,22 +239,22 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
 
     private static void OpenSaveDetails(string curFolder)
     {
-        ModMain.frmMain.PageChange(new FormMain.PageStackData
+        Launcher.frmMain.PageChange(new FormMain.PageStackData
         {
             page = FormMain.PageType.VersionSaves,
-            additional = (null, null, null, ModComp.CompLoaderType.Any, ModComp.CompType.Any, curFolder)
+            additional = (null, null, null, Comp.CompLoaderType.Any, Comp.CompType.Any, curFolder)
         });
     }
 
     private static void LaunchSave(string curFolder)
     {
-        var launchOptions = new ModLaunch.McLaunchOptions
+        var launchOptions = new GameLaunch.McLaunchOptions
         {
             WorldName = Path.GetFileName(curFolder),
             instance = PageInstanceLeft.McInstance
         };
-        ModLaunch.McLaunchStart(launchOptions);
-        ModMain.frmMain.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Launch });
+        GameLaunch.McLaunchStart(launchOptions);
+        Launcher.frmMain.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Launch });
     }
 
     private static void CopySaveToClipboard(string curFolder)
@@ -274,7 +274,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         }
         catch (Exception ex)
         {
-            ModBase.Log(ex, Lang.Text("Instance.Saves.CopyFailed"), ModBase.LogLevel.Hint,
+            Common.Log(ex, Lang.Text("Instance.Saves.CopyFailed"), Common.LogLevel.Hint,
                 userSummary: Lang.Text("Instance.Saves.CopyFailed"));
         }
     }
@@ -309,7 +309,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     private void FileSystemRefreshTimer_Tick(object sender, EventArgs e)
     {
         fileSystemRefreshTimer.Stop();
-        ModBase.RunInUi(() => Reload(), true);
+        Common.RunInUi(() => Reload(), true);
     }
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
@@ -338,37 +338,37 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
 
     private void BtnOpenFolder_Click(object sender, MouseButtonEventArgs e)
     {
-        ModBase.OpenExplorer(_vm.WorldPath);
+        Common.OpenExplorer(_vm.WorldPath);
     }
 
     private void BtnPaste_Click(object sender, MouseButtonEventArgs e)
     {
         var files = Clipboard.GetFileDropList();
         var worldPath = _vm.WorldPath;
-        var loaders = new List<ModLoader.LoaderBase>
+        var loaders = new List<Loading.LoaderBase>
         {
-            new ModLoader.LoaderTask<int, int>("Copy saves", _ =>
+            new Loading.LoaderTask<int, int>("Copy saves", _ =>
             {
                 var copied = PageInstanceSavesViewModel.CopySaveFolders(files, worldPath);
                 if (copied > 0)
                     HintService.Hint(Lang.Text("Instance.Saves.PastedCount", copied.ToString()), HintType.Success);
-                ModBase.RunInUi(() => Reload());
+                Common.RunInUi(() => Reload());
             })
         };
-        var loader = new ModLoader.LoaderCombo<int>(
+        var loader = new Loading.LoaderCombo<int>(
             $"{PageInstanceLeft.McInstance.Name} - {Lang.Text("Instance.Saves.CopySave")}", loaders)
         {
-            OnStateChanged = ModDownloadLib.LoaderStateChangedHintOnly
+            OnStateChanged = DownloadUi.LoaderStateChangedHintOnly
         };
         loader.Start(1);
-        ModLoader.LoaderTaskbarAdd(loader);
-        ModMain.frmMain.BtnExtraDownload.ShowRefresh();
-        ModMain.frmMain.BtnExtraDownload.Ribble();
+        Loading.LoaderTaskbarAdd(loader);
+        Launcher.frmMain.BtnExtraDownload.ShowRefresh();
+        Launcher.frmMain.BtnExtraDownload.Ribble();
     }
 
     private void BtnDownloadNew_Click(object sender, MouseButtonEventArgs e)
     {
-        ModMain.frmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadWorld);
+        Launcher.frmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadWorld);
         PageComp.targetVersion = PageInstanceLeft.McInstance;
     }
 
