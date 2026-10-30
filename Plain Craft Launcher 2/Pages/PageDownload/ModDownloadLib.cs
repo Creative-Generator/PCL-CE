@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.IO.Compression;
@@ -68,6 +68,7 @@ public static class ModDownloadLib
     public static ModLoader.LoaderCombo<string> McDownloadClient(NetPreDownloadBehaviour behaviour, string id,
         string jsonUrl = null)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-client-download")) return null;
         try
         {
             var versionFolder = Path.Combine(ModFolder.mcFolderSelected, "versions", id);
@@ -134,6 +135,7 @@ public static class ModDownloadLib
     /// <param name="jsonUrl">Json 文件的 Mojang 官方地址。</param>
     public static void McDownloadClientCore(string id, string jsonUrl, NetPreDownloadBehaviour behaviour)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-client-save")) return;
         try
         {
             var versionFolder = SystemDialogs.SelectFolder();
@@ -531,6 +533,7 @@ public static class ModDownloadLib
 
     public static void McDownloadMenuSave(object sender, RoutedEventArgs e)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-client-save")) return;
         var element = (FrameworkElement)sender;
         MyListItem version;
         if (element is MyListItem s1) version = s1;
@@ -885,8 +888,10 @@ public static class ModDownloadLib
         var versionFolder = Path.Combine(mcFolder, "versions", id);
         var isNewVersion = downloadInfo.Inherit.Contains("w") || McVersionComparer.CompareVersionGe(downloadInfo.Inherit, "1.14");
         var target = isNewVersion
-            ? $"{ModMain.RequestTaskTempFolder()}OptiFine.jar"
-            : $@"{mcFolder}libraries\optifine\OptiFine\{downloadInfo.NameFile.Replace("OptiFine_", "").Replace(".jar", "").Replace("preview_", "")}\{downloadInfo.NameFile.Replace("OptiFine_", "OptiFine-").Replace("preview_", "")}";
+            ? Path.Combine(ModMain.RequestTaskTempFolder(), "OptiFine.jar")
+            : Path.Combine(mcFolder, "libraries", "optifine", "OptiFine",
+                downloadInfo.NameFile.Replace("OptiFine_", "").Replace(".jar", "").Replace("preview_", ""),
+                downloadInfo.NameFile.Replace("OptiFine_", "OptiFine-").Replace("preview_", ""));
         var loaders = new List<ModLoader.LoaderBase>();
         var javaVersion = McVersionComparer.CompareVersionGe(downloadInfo.Inherit, "26.1.2")
             ? new Version(21, 0, 0, 0)
@@ -978,11 +983,11 @@ public static class ModDownloadLib
                 var clientName = ModBase.GetFolderNameFromPath(clientFolder);
                 Directory.CreateDirectory(Path.Combine(mcFolder, "versions", downloadInfo.Inherit));
                 if (!File.Exists(Path.Combine(mcFolder, "versions", downloadInfo.Inherit, downloadInfo.Inherit + ".json")))
-                    ModBase.CopyFile($"{clientFolder}{clientName}.json",
-                        $@"{mcFolder}versions\{downloadInfo.Inherit}\{downloadInfo.Inherit}.json");
+                    ModBase.CopyFile(Path.Combine(clientFolder, clientName + ".json"),
+                        Path.Combine(mcFolder, "versions", downloadInfo.Inherit, downloadInfo.Inherit + ".json"));
                 if (!File.Exists(Path.Combine(mcFolder, "versions", downloadInfo.Inherit, downloadInfo.Inherit + ".jar")))
-                    ModBase.CopyFile($"{clientFolder}{clientName}.jar",
-                        $@"{mcFolder}versions\{downloadInfo.Inherit}\{downloadInfo.Inherit}.jar");
+                    ModBase.CopyFile(Path.Combine(clientFolder, clientName + ".jar"),
+                        Path.Combine(mcFolder, "versions", downloadInfo.Inherit, downloadInfo.Inherit + ".jar"));
             }
         })
         {
@@ -1981,8 +1986,8 @@ public static class ModDownloadLib
 
         string loaderName = ModBase.GetStringFromEnum(forgeType);
         var isCustomFolder = (mcFolder ?? "") != (ModFolder.mcFolderSelected ?? "");
-        var installerAddress = ModMain.RequestTaskTempFolder() + "forge_installer.jar";
-        var versionFolder = $@"{mcFolder}versions\{targetVersion}\";
+        var installerAddress = Path.Combine(ModMain.RequestTaskTempFolder(), "forge_installer.jar");
+        var versionFolder = Path.Combine(mcFolder, "versions", targetVersion) + @"\";
         var displayName = $"{loaderName} {inherit} - {loaderVersion}";
         var loaders = new List<ModLoader.LoaderBase>();
         var libVersionFolder = $@"{ModFolder.mcFolderSelected}versions\{targetVersion}\"; // 作为 Lib 文件目标的实例文件夹
@@ -2231,7 +2236,7 @@ public static class ModDownloadLib
                         // 记录当前文件夹列表（在新建目标文件夹之前）
                         ModBase.Log("[Download] 开始进行 Forgelike 安装：" + installerAddress);
                         // 解压并获取信息
-                        var oldList = new DirectoryInfo(mcFolder + "versions/")
+                        var oldList = new DirectoryInfo(Path.Combine(mcFolder, "versions"))
                             .EnumerateDirectories().Select(i => i.FullName).ToList();
 
 
@@ -2270,7 +2275,7 @@ public static class ModDownloadLib
                             // 拷贝新增的实例 Json
                         }
 
-                        var deltaList = new DirectoryInfo(mcFolder + "versions/").EnumerateDirectories()
+                        var deltaList = new DirectoryInfo(Path.Combine(mcFolder, "versions")).EnumerateDirectories()
                             .SkipWhile(i => oldList.Contains(i.FullName)).ToList();
 
                         if (deltaList.Count > 1)
@@ -3711,16 +3716,16 @@ public static class ModDownloadLib
     {
         try
         {
+            if (((ModLoader.LoaderBase)loader).State != ModBase.LoadState.Failed &&
+                ((ModLoader.LoaderBase)loader).State != ModBase.LoadState.Aborted)
+                return;
+
             Thread.Sleep(1000); // 防止存在尚未完全释放的文件，导致清理失败（例如整合包安装）
-            if (((ModLoader.LoaderBase)loader).State == ModBase.LoadState.Failed ||
-                ((ModLoader.LoaderBase)loader).State == ModBase.LoadState.Aborted)
-            {
-                // 删除实例文件夹
-                ModBase.Log($"[Download] 由于下载失败或取消，清理实例文件夹：{((ModLoader.LoaderCombo)loader).input}", ModBase.LogLevel.Developer);
-                var instancePath = (string)((ModLoader.LoaderCombo)loader).input;
-                    ((DynamicCacheConfigStorage)ConfigService.GetProvider(ConfigSource.GameInstance)).InvalidateCache(instancePath);
-                    ModBase.DeleteDirectory(instancePath);
-            }
+            // 删除实例文件夹
+            ModBase.Log($"[Download] 由于下载失败或取消，清理实例文件夹：{((ModLoader.LoaderCombo)loader).input}", ModBase.LogLevel.Developer);
+            var instancePath = (string)((ModLoader.LoaderCombo)loader).input;
+            ((DynamicCacheConfigStorage)ConfigService.GetProvider(ConfigSource.GameInstance)).InvalidateCache(instancePath);
+            ModBase.DeleteDirectory(instancePath);
         }
         catch (Exception ex)
         {
@@ -3735,6 +3740,7 @@ public static class ModDownloadLib
     /// </summary>
     public static bool McInstall(McInstallRequest request, string type = mcInstallDefaultType)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-install")) return false;
         try
         {
             var subLoaders = McInstallLoader(request, ignoreDump: type != mcInstallDefaultType);
@@ -3791,6 +3797,7 @@ public static class ModDownloadLib
     public static List<ModLoader.LoaderBase> McInstallLoader(McInstallRequest request, bool dontFixLibraries = false,
         bool ignoreDump = false)
     {
+        RestrictedFeaturePolicy.ThrowIfRestricted("minecraft-install");
         // 获取缓存目录（安装 Mod 加载器的文件夹不能包含空格）
         var tempMcFolder = ModMain.RequestTaskTempFolder(request.optiFineEntry is not null ||
                                                          request.forgeEntry is not null ||
@@ -4083,8 +4090,8 @@ public static class ModDownloadLib
             ProgressWeight = 2d,
             block = true
         });
-        // 补全文件
-        if (!dontFixLibraries && (request.optiFineEntry is not null ||
+        // 补全文件：MMC 整合包的 JSON Patches 可能引入原版与加载器均不包含的支持库（例如 LWJGL3），也需要补全
+        if (!dontFixLibraries && (request.mmcPackInfo is not null || request.optiFineEntry is not null ||
                                   (request.forgeVersion is not null &&
                                    Convert.ToDouble(request.forgeVersion.BeforeFirst(".")) >= 20d) ||
                                   request.neoForgeVersion is not null || request.fabricVersion is not null ||
@@ -4397,7 +4404,11 @@ public static class ModDownloadLib
             if (mMCPackInfo.isMinecraftOverrided)
             {
                 ModBase.Log("[Download] 当前实例的 MC 核心已被修改，使用对应的 MMC 整合包参数");
-                outputJson = mMCPackInfo.overridedJson;
+                // 以原版 JSON 为基础，按 JSON-Patches 的语义将补丁提供的字段整体覆盖，
+                // 同时保留 assets、releaseTime、downloads、clientVersion 等补丁未提供的字段
+                outputJson = minecraftJson is not null ? (JsonObject)minecraftJson.DeepClone() : new JsonObject();
+                foreach (var patchProperty in mMCPackInfo.overridedJson)
+                    outputJson[patchProperty.Key] = patchProperty.Value?.DeepClone();
             }
             else
             {
@@ -4547,6 +4558,18 @@ public static class ModDownloadLib
             });
         }
 
+        // 整合包通过 JSON Patches 引入 LWJGL3（例如 GTNH 的 lwjgl3ify）时，
+        // 移除与之冲突的 LWJGL2 支持库，参考 MultiMC 中 org.lwjgl3 组件与 org.lwjgl 组件的 conflicts 关系
+        if (outputJson["libraries"] is JsonArray finalLibs && finalLibs.Any(IsLwjgl3Library))
+        {
+            for (var i = finalLibs.Count - 1; i >= 0; i--)
+                if (IsLwjgl2Library(finalLibs[i]))
+                {
+                    ModBase.Log("[Download] 已移除与 LWJGL3 冲突的 LWJGL2 支持库：" + finalLibs[i]?["name"]);
+                    finalLibs.RemoveAt(i);
+                }
+        }
+
         // 修改
         if (realArguments is not null && !string.IsNullOrEmpty(realArguments.Replace(" ", "")))
             outputJson["minecraftArguments"] = realArguments;
@@ -4572,6 +4595,29 @@ public static class ModDownloadLib
         ModBase.Log("[Download] 实例合并 " + outputName + " 完成");
 
         #endregion
+    }
+
+    /// <summary>
+    ///     判断支持库是否为 LWJGL 3.x（Maven 坐标形如 org.lwjgl:lwjgl:3.x.y）。
+    /// </summary>
+    private static bool IsLwjgl3Library(JsonNode library)
+    {
+        if (library is not JsonObject lib) return false;
+        var segments = (lib["name"]?.ToString() ?? "").Split(':');
+        return segments.Length >= 3 && segments[0] == "org.lwjgl" &&
+               segments[2].StartsWith("3.", StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    ///     判断支持库是否为与 LWJGL 3 冲突的 LWJGL 2.x。
+    /// </summary>
+    private static bool IsLwjgl2Library(JsonNode library)
+    {
+        if (library is not JsonObject lib) return false;
+        var segments = (lib["name"]?.ToString() ?? "").Split(':');
+        return segments.Length >= 3 &&
+               (segments[0] == "org.lwjgl.lwjgl" ||
+                (segments[0] == "org.lwjgl" && segments[2].StartsWith("2.", StringComparison.Ordinal)));
     }
 
     #endregion

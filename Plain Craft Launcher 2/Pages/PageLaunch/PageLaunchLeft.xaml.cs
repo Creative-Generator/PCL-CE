@@ -46,6 +46,8 @@ public partial class PageLaunchLeft
     private bool isWidthAnimating;
     private double showProgress;
 
+    private readonly PageLaunchLeftViewModel _vm = new();
+
     public PageLaunchLeft()
     {
         InitializeComponent();
@@ -59,7 +61,11 @@ public partial class PageLaunchLeft
         BtnMore.Click += BtnMore_Click;
         PanLaunchingInfo.SizeChanged += PanLaunchingInfo_SizeChangedW;
         PanLaunchingInfo.SizeChanged += PanLaunchingInfo_SizeChangedH;
+        DataContext = _vm;
     }
+
+    public PageLaunchLeftViewModel ViewModel => _vm;
+
     private static void OnLanguageChanged(PageLaunchLeft page) => ModBase.RunInUi(page.RefreshButtonsUI);
 
     public void PageLaunchLeft_Loaded(object sender, RoutedEventArgs e)
@@ -73,7 +79,7 @@ public partial class PageLaunchLeft
         if (isLoad)
             return;
         isLoad = true;
-        ModAnimation.AniControlEnabled += 1;
+        ModAnimation.AniBeginControl();
 
         // 开始按钮
         ModInstanceList.mcInstanceListLoader.LoadingStateChanged += (_, _) => RefreshButtonsUI();
@@ -94,6 +100,8 @@ public partial class PageLaunchLeft
                 packInstallPath = Path.Combine(ModBase.exePath, "modpack.zip");
             if (File.Exists(Path.Combine(ModBase.exePath, "modpack.mrpack")))
                 packInstallPath = Path.Combine(ModBase.exePath, "modpack.mrpack");
+            if (packInstallPath is not null && !RestrictedFeaturePolicy.Check("auto-modpack-install"))
+                packInstallPath = null;
             if (packInstallPath is not null)
             {
                 ModBase.Log("[Launch] 需自动安装整合包：" + packInstallPath, ModBase.LogLevel.Debug);
@@ -195,7 +203,7 @@ public partial class PageLaunchLeft
         // 改变页面
         RefreshPage(false);
 
-        ModAnimation.AniControlEnabled -= 1;
+        ModAnimation.AniEndControl();
     }
 
     // 实例选择按钮
@@ -286,46 +294,46 @@ public partial class PageLaunchLeft
             {
                 _launchButtonAction = LaunchButtonAction.Loading;
                 ModBase.Log("[Minecraft] 启动按钮：正在加载 Minecraft 实例");
-                ModMain.frmLaunchLeft.BtnLaunch.Text = Lang.Text("Launch.Home.Button.Loading");
-                ModMain.frmLaunchLeft.BtnLaunch.IsEnabled = false;
-                ModMain.frmLaunchLeft.LabVersion.Text = Lang.Text("Launch.Home.Instance.Loading");
-                ModMain.frmLaunchLeft.BtnInstance.IsEnabled = false;
-                ModMain.frmLaunchLeft.BtnMore.Visibility = Visibility.Collapsed;
+                _vm.LaunchButtonText = Lang.Text("Launch.Home.Button.Loading");
+                BtnLaunch.IsEnabled = false;
+                _vm.VersionNameText = Lang.Text("Launch.Home.Instance.Loading");
+                _vm.IsInstanceButtonEnabled = false;
+                _vm.MoreButtonVisibility = Visibility.Collapsed;
                 break;
             }
             case 1:
             {
                 _launchButtonAction = LaunchButtonAction.Disabled;
                 ModBase.Log("[Minecraft] 启动按钮：无 Minecraft 实例，下载已禁用");
-                ModMain.frmLaunchLeft.BtnLaunch.Text = Lang.Text("Launch.Home.Button.Launch");
-                ModMain.frmLaunchLeft.BtnLaunch.IsEnabled = false;
-                ModMain.frmLaunchLeft.LabVersion.Text = Lang.Text("Launch.Home.Instance.NotFound");
-                ModMain.frmLaunchLeft.BtnInstance.IsEnabled = true;
-                ModMain.frmLaunchLeft.BtnMore.Visibility = Visibility.Collapsed;
+                _vm.LaunchButtonText = Lang.Text("Launch.Home.Button.Launch");
+                BtnLaunch.IsEnabled = false;
+                _vm.VersionNameText = Lang.Text("Launch.Home.Instance.NotFound");
+                _vm.IsInstanceButtonEnabled = true;
+                _vm.MoreButtonVisibility = Visibility.Collapsed;
                 break;
             }
             case 2:
             {
                 _launchButtonAction = LaunchButtonAction.Download;
                 ModBase.Log("[Minecraft] 启动按钮：无 Minecraft 实例，要求下载");
-                ModMain.frmLaunchLeft.BtnLaunch.Text = Lang.Text("Launch.Home.Button.Download");
-                ModMain.frmLaunchLeft.BtnLaunch.IsEnabled = true;
-                ModMain.frmLaunchLeft.LabVersion.Text = Lang.Text("Launch.Home.Instance.NotFound");
-                ModMain.frmLaunchLeft.BtnInstance.IsEnabled = true;
-                ModMain.frmLaunchLeft.BtnMore.Visibility = Visibility.Collapsed;
+                _vm.LaunchButtonText = Lang.Text("Launch.Home.Button.Download");
+                BtnLaunch.IsEnabled = true;
+                _vm.VersionNameText = Lang.Text("Launch.Home.Instance.NotFound");
+                _vm.IsInstanceButtonEnabled = true;
+                _vm.MoreButtonVisibility = Visibility.Collapsed;
                 break;
             }
             case 3:
             {
                 _launchButtonAction = LaunchButtonAction.Launch;
                 ModBase.Log("[Minecraft] 启动按钮：Minecraft 实例：" + ModInstanceList.McMcInstanceSelected.PathInstance);
-                ModMain.frmLaunchLeft.BtnLaunch.Text = Lang.Text("Launch.Home.Button.Launch");
-                ModMain.frmLaunchLeft.BtnInstance.IsEnabled = true;
+                _vm.LaunchButtonText = Lang.Text("Launch.Home.Button.Launch");
+                _vm.IsInstanceButtonEnabled = true;
                 if (ProfileService.Current is not null)
                     BtnLaunch.IsEnabled = true;
                 else
                     BtnLaunch.IsEnabled = false;
-                ModMain.frmLaunchLeft.LabVersion.Text = ModInstanceList.McMcInstanceSelected.Name;
+                _vm.VersionNameText = ModInstanceList.McMcInstanceSelected.Name;
                 break;
             }
             // FrmLaunchLeft.BtnMore.Visibility = Visibility.Visible '由功能隐藏设置修改
@@ -334,11 +342,11 @@ public partial class PageLaunchLeft
         ExitRefresh: ;
 
         // 功能隐藏
-        ModMain.frmLaunchLeft.BtnInstance.Visibility =
+        _vm.InstanceButtonVisibility =
             !PageSetupUI.HiddenForceShow && Config.Preference.Hide.FunctionSelect
                 ? Visibility.Collapsed
                 : Visibility.Visible;
-        if (currentState == 3) ModMain.frmLaunchLeft.BtnMore.Visibility = ModMain.frmLaunchLeft.BtnInstance.Visibility;
+        if (currentState == 3) _vm.MoreButtonVisibility = _vm.InstanceButtonVisibility;
     }
 
     // 取消按钮
@@ -402,14 +410,14 @@ public partial class PageLaunchLeft
                     foreach (var Loader in ModLaunch.mcLaunchLoaderReal.GetLoaderList(false))
                         if (Loader.State == ModBase.LoadState.Loading || Loader.State == ModBase.LoadState.Waiting)
                         {
-                            LabLaunchingStage.Text = Loader.name;
+                            _vm.LaunchingStageText = Loader.name;
                             isLaunched = Loader.name == StageWaitWindow || Loader.name == StageEnd;
                             exitTry = true;
                             break;
                         }
 
                     if (exitTry) break;
-                    LabLaunchingStage.Text = Lang.Text("Launch.Status.Completed");
+                    _vm.LaunchingStageText = Lang.Text("Launch.Status.Completed");
                 }
                 catch (Exception ex)
                 {
@@ -429,9 +437,9 @@ public partial class PageLaunchLeft
             if (isLaunched)
                 showProgress = 1d; // 如果已经完成了，就不卖关子了
             // 文本
-            LabLaunchingTitle.Text = isLaunched ? Lang.Text("Launch.Status.Title.Launched") :
+            _vm.LaunchingTitleText = isLaunched ? Lang.Text("Launch.Status.Title.Launched") :
                 ModLaunch.currentLaunchOptions.SaveBatch is null ? Lang.Text("Launch.Status.Title.Launching") : Lang.Text("Launch.Status.Title.ExportingScript");
-            LabLaunchingProgress.Text = Lang.Number(showProgress, "P2");
+            _vm.ApplyLaunchingProgress(showProgress);
             var hasLaunchDownloader = false;
             try
             {
@@ -446,7 +454,7 @@ public partial class PageLaunchLeft
                 hasLaunchDownloader = false;
             }
 
-            LabLaunchingDownload.Text = ModBase.GetString(ModNet.NetManager.Speed) + "/s";
+            _vm.ApplyLaunchingDownload(ModNet.NetManager.Speed);
             var shouldShowHint = Config.Preference.ShowLaunchingHint;
             // 进度改变动画
             var animList = new List<ModAnimation.AniData>
@@ -568,18 +576,18 @@ public partial class PageLaunchLeft
         {
             case ProfileType.Offline:
             {
-                LabLaunchingMethod.Text = Lang.Text("Launch.Account.Type.Offline");
+                _vm.LaunchingMethodText = Lang.Text("Launch.Account.Type.Offline");
                 break;
             }
             case ProfileType.Microsoft:
             {
-                LabLaunchingMethod.Text = Lang.Text("Launch.Account.Type.Microsoft");
+                _vm.LaunchingMethodText = Lang.Text("Launch.Account.Type.Microsoft");
                 break;
             }
             case ProfileType.Authlib:
             case ProfileType.YggdrasilConnect:
             {
-                LabLaunchingMethod.Text = Lang.Text("Launch.Account.Type.ThirdParty") + (!string.IsNullOrEmpty(ProfileService.Current?.ServerName)
+                _vm.LaunchingMethodText = Lang.Text("Launch.Account.Type.ThirdParty") + (!string.IsNullOrEmpty(ProfileService.Current?.ServerName)
                     ? " / " + ProfileService.Current.ServerName
                     : "");
                 break;
@@ -587,17 +595,17 @@ public partial class PageLaunchLeft
         }
 
         // 初始化页面
-        LabLaunchingName.Text = ModInstanceList.McMcInstanceSelected.Name;
-        LabLaunchingStage.Text = Lang.Text("Common.Action.Initialize");
-        LabLaunchingTitle.Text = ModLaunch.currentLaunchOptions?.SaveBatch is null
+        _vm.LaunchingNameText = ModInstanceList.McMcInstanceSelected.Name;
+        _vm.LaunchingStageText = Lang.Text("Common.Action.Initialize");
+        _vm.LaunchingTitleText = ModLaunch.currentLaunchOptions?.SaveBatch is null
             ? Lang.Text("Launch.Status.Title.Launching")
             : Lang.Text("Launch.Status.Title.ExportingScript");
-        LabLaunchingProgress.Text = Lang.Number(0d, "P2");
+        _vm.LaunchingProgressText = Lang.Number(0d, "P2");
         LabLaunchingProgress.Opacity = 1d;
         LabLaunchingDownload.Visibility = Visibility.Visible;
         LabLaunchingProgressLeft.Opacity = 0.6d;
         LabLaunchingDownload.Visibility = Visibility.Visible;
-        LabLaunchingDownload.Text = ModBase.GetString(0) + "/s";
+        _vm.ApplyLaunchingDownload(0);
         LabLaunchingDownload.Opacity = 0d;
         LabLaunchingDownload.Visibility = Visibility.Collapsed;
         LabLaunchingDownloadLeft.Opacity = 0d;
@@ -610,11 +618,7 @@ public partial class PageLaunchLeft
         ModLaunch.mcLaunchProcess = null;
         ModLaunch.mcLaunchWatcher = null;
 
-        var shouldShowHint = Config.Preference.ShowLaunchingHint;
-        if (shouldShowHint)
-            LabLaunchingHint.Text = PageLaunchRight.GetRandomHint(true, true);
-        else
-            LabLaunchingHint.Text = "";
+        _vm.ApplyLaunchingHint(Config.Preference.ShowLaunchingHint);
 
         // 初始化其他页面
         PanInput.IsHitTestVisible = false;
@@ -755,10 +759,10 @@ public partial class PageLaunchLeft
                     ModAnimation.AaOpacity(PanLogin, -PanLogin.Opacity, 100, ease: new ModAnimation.AniEaseOutFluent()),
                     ModAnimation.AaCode(() =>
                     {
-                        ModAnimation.AniControlEnabled += 1;
+                        ModAnimation.AniBeginControl();
                         PanLogin.Children.Clear();
                         PanLogin.Children.Add((UIElement)pageNew);
-                        ModAnimation.AniControlEnabled -= 1;
+                        ModAnimation.AniEndControl();
                     }, 100),
                     ModAnimation.AaOpacity(PanLogin, 1d, 100, 120, new ModAnimation.AniEaseInFluent())
                 }, "FrmLogin PageChange"), DispatcherPriority.Render);
@@ -766,10 +770,10 @@ public partial class PageLaunchLeft
             else
             {
                 // 无动画
-                ModAnimation.AniControlEnabled += 1;
+                ModAnimation.AniBeginControl();
                 PanLogin.Children.Clear();
                 PanLogin.Children.Add((UIElement)pageNew);
-                ModAnimation.AniControlEnabled -= 1;
+                ModAnimation.AniEndControl();
             }
 
             #endregion

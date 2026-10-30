@@ -17,11 +17,14 @@ using PCL.Core.App.Localization;
 
 namespace PCL;
 
-public partial class PageInstanceOverall
+public partial class PageInstanceOverall : IPageView
 {
+    private readonly PageInstanceOverallViewModel _vm = new();
+
     private ModLoader.LoaderCombo<int> instanceInfoLoader;
 
     private bool isLoad;
+    private bool _refreshed;
 
     public MyListItem itemVersion;
     private MyCompItem modpackCompItem;
@@ -29,8 +32,9 @@ public partial class PageInstanceOverall
     public PageInstanceOverall()
     {
         InitializeComponent();
+        DataContext = _vm;
         Loaded += PageSetupLaunch_Loaded;
-        LabInfoLoading.Text = Lang.Text("Instance.Overall.Info.Loading");
+        Unloaded += (_, _) => _refreshed = false;
         // Handles
         ComboDisplayType.SelectionChanged += ComboDisplayType_SelectionChanged;
         BtnDisplayDesc.Click += BtnDisplayDesc_Click;
@@ -48,8 +52,28 @@ public partial class PageInstanceOverall
         BtnManagePatch.Click += BtnManagePatch_Click;
     }
 
+    public PageInstanceOverallViewModel ViewModel => _vm;
+
+    public void OnNavigatedTo(object? parameter)
+    {
+        RefreshOnNavigate();
+    }
+
+    public void OnNavigatedFrom()
+    {
+    }
+
     private void PageSetupLaunch_Loaded(object sender, RoutedEventArgs e)
     {
+        RefreshOnNavigate();
+    }
+
+    private void RefreshOnNavigate()
+    {
+        if (_refreshed)
+            return;
+        _refreshed = true;
+
         // 重复加载部分
         PanBack.ScrollToHome();
 
@@ -69,13 +93,12 @@ public partial class PageInstanceOverall
     /// </summary>
     private void Reload()
     {
-        ModAnimation.AniControlEnabled += 1;
+        ModAnimation.AniBeginControl();
 
         var instance = PageInstanceLeft.McInstance;
         // 刷新设置项目
         ComboDisplayType.SelectedIndex = States.Instance.CardType[instance.PathInstance];
-        BtnDisplayStar.Text = instance.IsStar ? Lang.Text("Instance.Overall.Unfavorite") : Lang.Text("Instance.Overall.Favorite");
-        BtnFolderMods.Visibility = instance.Modable ? Visibility.Visible : Visibility.Collapsed;
+        _vm.RefreshDisplay(instance);
         // 刷新实例显示
         PanDisplayItem.Children.Clear();
         itemVersion = PageSelectRight.McVersionListItem(instance);
@@ -98,7 +121,7 @@ public partial class PageInstanceOverall
                     break;
                 }
 
-        ModAnimation.AniControlEnabled -= 1;
+        ModAnimation.AniEndControl();
     }
 
     private void GetInstanceInfo()
@@ -129,82 +152,9 @@ public partial class PageInstanceOverall
         });
         loaders.Add(new ModLoader.LoaderTask<int, int>(Lang.Text("Instance.Overall.Info.LoadInstanceInfoTask"), _ => ModBase.RunInUi(() =>
         {
-            var instance = PageInstanceLeft.McInstance;
-            var instanceInfo = instance.Info;
-            List<MyListItem> items = [];
-            var launchCount = States.Instance.LaunchCount[instance.PathInstance];
-            if (launchCount == 0)
-                items.Add(new MyListItem
-                {
-                    Title = Lang.Text("Instance.Overall.Info.LaunchCount.Title"), Info = Lang.Text("Instance.Overall.Info.LaunchCount.Never"), Logo = "pack://application:,,,/images/Blocks/RedstoneLampOff.png"
-                });
-            else
-                items.Add(new MyListItem
-                {
-                    Title = Lang.Text("Instance.Overall.Info.LaunchCount.Title"),
-                    Info = Lang.Text("Instance.Overall.Info.LaunchCount.Count", States.Instance.LaunchCount[instance.PathInstance]),
-                    Logo = "pack://application:,,,/images/Blocks/RedstoneLampOn.png"
-                });
-            if (!string.IsNullOrWhiteSpace(States.Instance.ModpackVersion[instance.PathInstance]))
-                items.Add(new MyListItem
-                {
-                    Title = Lang.Text("Instance.Overall.Info.ModpackVersion"), Info = States.Instance.ModpackVersion[instance.PathInstance],
-                    Logo = "pack://application:,,,/images/Blocks/CommandBlock.png"
-                });
-            items.Add(new MyListItem
-            {
-                Title = "Minecraft", Info = instanceInfo.VanillaName,
-                Logo = "pack://application:,,,/images/Blocks/Grass.png"
-            });
-            if (instanceInfo.HasForge)
-                items.Add(new MyListItem
-                {
-                    Title = "Forge", Info = instanceInfo.Forge, Logo = "pack://application:,,,/images/Blocks/Anvil.png"
-                });
-            if (instanceInfo.HasNeoForge)
-                items.Add(new MyListItem
-                {
-                    Title = "NeoForge", Info = instanceInfo.NeoForge,
-                    Logo = "pack://application:,,,/images/Blocks/NeoForge.png"
-                });
-            if (instanceInfo.HasCleanroom)
-                items.Add(new MyListItem
-                {
-                    Title = "Cleanroom", Info = instanceInfo.Cleanroom,
-                    Logo = "pack://application:,,,/images/Blocks/Cleanroom.png"
-                });
-            if (instanceInfo.HasFabric)
-                items.Add(new MyListItem
-                {
-                    Title = "Fabric", Info = instanceInfo.Fabric,
-                    Logo = "pack://application:,,,/images/Blocks/Fabric.png"
-                });
-            if (instanceInfo.HasQuilt)
-                items.Add(new MyListItem
-                {
-                    Title = "Quilt", Info = instanceInfo.Quilt, Logo = "pack://application:,,,/images/Blocks/Quilt.png"
-                });
-            if (instanceInfo.HasOptiFine)
-                items.Add(new MyListItem
-                {
-                    Title = "OptiFine", Info = instanceInfo.OptiFine,
-                    Logo = "pack://application:,,,/images/Blocks/GrassPath.png"
-                });
-            if (instanceInfo.HasLiteLoader)
-                items.Add(new MyListItem
-                    { Title = "LiteLoader", Info = Lang.Text("Instance.Overall.Info.Installed"), Logo = "pack://application:,,,/images/Blocks/Egg.png" });
-            if (instanceInfo.HasLegacyFabric)
-                items.Add(new MyListItem
-                {
-                    Title = "Legacy Fabric", Info = instanceInfo.LegacyFabric,
-                    Logo = "pack://application:,,,/images/Blocks/Fabric.png"
-                });
-            if (instanceInfo.HasLabyMod)
-                items.Add(new MyListItem
-                {
-                    Title = "LabyMod", Info = instanceInfo.LabyMod,
-                    Logo = "pack://application:,,,/images/Blocks/LabyMod.png"
-                });
+            var items = PageInstanceOverallViewModel.BuildInfoRows(PageInstanceLeft.McInstance)
+                .Select(row => new MyListItem { Title = row.Title, Info = row.Info, Logo = row.Logo })
+                .ToList();
             var wrapPanel = new WrapPanel { Margin = new Thickness(0, -5, -20, 7) };
             foreach (var item in items)
             {
@@ -228,76 +178,95 @@ public partial class PageInstanceOverall
     #region 卡片：个性化
 
     // 实例分类
-    private void ComboDisplayType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void ComboDisplayType_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!(isLoad && ModAnimation.AniControlEnabled == 0))
-            return;
-        if (ComboDisplayType.SelectedIndex != 1)
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
+        try
         {
-            // 改为不隐藏
-            try
+            if (!(isLoad && !ModAnimation.AniExitsAnyControl()))
+                return;
+            if (ComboDisplayType.SelectedIndex != 1)
             {
-                // 若设置分类为可安装 Mod，则显示正常的 Mod 管理页面
-                States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance] = ComboDisplayType.SelectedIndex;
-                PageInstanceLeft.McInstance.displayType = (McInstanceCardType)States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance];
-                ModMain.frmInstanceLeft.RefreshModDisabled();
-
-                ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "InstanceCache", ""); // 要求刷新缓存
-                ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
-                    ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
-            }
-            catch (Exception ex)
-            {
-                ModBase.Log(
-                    ex,
-                    $"修改实例分类失败（{PageInstanceLeft.McInstance.Name}）",
-                    ModBase.LogLevel.Feedback,
-                    userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
-            }
-
-            Reload(); // 更新 “打开 Mod 文件夹” 按钮
-        }
-        else
-        {
-            // 改为隐藏
-            try
-            {
-                if (!States.Hint.HideGameInstance)
+                // 改为不隐藏
+                try
                 {
-                if (ModMain.MyMsgBox(
-                        Lang.Text("Instance.Overall.Hide.ConfirmMessage"), Lang.Text("Instance.Overall.Hide.ConfirmTitle"), button2: Lang.Text("Common.Action.Cancel")) != 1)
-                    {
-                        ComboDisplayType.SelectedIndex = 0;
-                        return;
-                    }
+                    // 若设置分类为可安装 Mod，则显示正常的 Mod 管理页面
+                    States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance] = ComboDisplayType.SelectedIndex;
+                    PageInstanceLeft.McInstance.displayType = (McInstanceCardType)States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance];
+                    ModMain.frmInstanceLeft.RefreshModDisabled();
 
-                    States.Hint.HideGameInstance = true;
+                    ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "InstanceCache", ""); // 要求刷新缓存
+                    ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
+                        ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
+                }
+                catch (Exception ex)
+                {
+                    ModBase.Log(
+                        ex,
+                        $"修改实例分类失败（{PageInstanceLeft.McInstance.Name}）",
+                        ModBase.LogLevel.Feedback,
+                        userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
                 }
 
-                States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance] =
-                    (int)McInstanceCardType.Hidden;
-                ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "InstanceCache", ""); // 要求刷新缓存
-                ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
-                    ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
+                Reload(); // 更新 “打开 Mod 文件夹” 按钮
             }
-            catch (Exception ex)
+            else
             {
-                ModBase.Log(
-                    ex,
-                    $"隐藏实例 {PageInstanceLeft.McInstance.Name} 失败",
-                    ModBase.LogLevel.Feedback,
-                    userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
+                // 改为隐藏
+                try
+                {
+                    if (!States.Hint.HideGameInstance)
+                    {
+                        if (await ModMain.MyMsgBoxAsync(
+                                Lang.Text("Instance.Overall.Hide.ConfirmMessage"), Lang.Text("Instance.Overall.Hide.ConfirmTitle"), button2: Lang.Text("Common.Action.Cancel")) != 1)
+                        {
+                            ComboDisplayType.SelectedIndex = 0;
+                            return;
+                        }
+
+                        States.Hint.HideGameInstance = true;
+                    }
+
+                    States.Instance.CardType[PageInstanceLeft.McInstance.PathInstance] =
+                        (int)McInstanceCardType.Hidden;
+                    ModBase.WriteIni(ModFolder.mcFolderSelected + "PCL.ini", "InstanceCache", ""); // 要求刷新缓存
+                    ModLoader.LoaderFolderRun(ModInstanceList.mcInstanceListLoader, ModFolder.mcFolderSelected,
+                        ModLoader.LoaderFolderRunType.ForceRun, 1, @"versions\");
+                }
+                catch (Exception ex)
+                {
+                    ModBase.Log(
+                        ex,
+                        $"隐藏实例 {PageInstanceLeft.McInstance.Name} 失败",
+                        ModBase.LogLevel.Feedback,
+                        userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(
+                ex,
+                "修改实例分类失败",
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
+        }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
         }
     }
 
     // 更改描述
-    private void BtnDisplayDesc_Click(object sender, MouseButtonEventArgs e)
+    private async void BtnDisplayDesc_Click(object sender, MouseButtonEventArgs e)
     {
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
         try
         {
             var oldInfo = States.Instance.CustomInfo[PageInstanceLeft.McInstance.PathInstance];
-            var newInfo = ModMain.MyMsgBoxInput(Lang.Text("Instance.Overall.Description.EditTitle"), Lang.Text("Instance.Overall.Description.EditMessage"), oldInfo,
+            var newInfo = await ModMain.MyMsgBoxInputAsync(Lang.Text("Instance.Overall.Description.EditTitle"), Lang.Text("Instance.Overall.Description.EditMessage"), oldInfo,
                 [], Lang.Text("Instance.Overall.Description.Default"));
             if (newInfo is not null && (oldInfo ?? "") != (newInfo ?? ""))
                 States.Instance.CustomInfo[PageInstanceLeft.McInstance.PathInstance] = newInfo;
@@ -314,18 +283,24 @@ public partial class PageInstanceOverall
                 ModBase.LogLevel.Msgbox,
                 userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
         }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
+        }
     }
 
     // 重命名实例
-    private void BtnDisplayRename_Click(object sender, MouseButtonEventArgs e)
+    private async void BtnDisplayRename_Click(object sender, MouseButtonEventArgs e)
     {
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
         try
         {
             // 确认输入的新名称
             var oldName = PageInstanceLeft.McInstance.Name;
             var oldPath = PageInstanceLeft.McInstance.PathInstance;
             // 修改此部分的同时修改快速安装的实例名检测*
-            var newName = ModMain.MyMsgBoxInput(Lang.Text("Instance.Overall.Name.EditTitle"), "", oldName,
+            var newName = await ModMain.MyMsgBoxInputAsync(Lang.Text("Instance.Overall.Name.EditTitle"), "", oldName,
                 [new FolderNameValidator(ModFolder.mcFolderSelected + "versions", ignoreCase: false)]);
             if (string.IsNullOrWhiteSpace(newName))
                 return;
@@ -420,12 +395,16 @@ public partial class PageInstanceOverall
                 ModBase.LogLevel.Msgbox,
                 userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
         }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
+        }
     }
 
     // 实例图标
     private void ComboDisplayLogo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!(isLoad && ModAnimation.AniControlEnabled == 0))
+        if (!(isLoad && !ModAnimation.AniExitsAnyControl()))
             return;
         // 选择 自定义 时修改图片
         try
@@ -512,7 +491,7 @@ public partial class PageInstanceOverall
 
     public static void OpenVersionFolder(McInstance version)
     {
-        ModBase.OpenExplorer(version.PathInstance);
+        PageInstanceOverallViewModel.OpenVersionFolder(version);
     }
 
     // 存档文件夹
@@ -575,6 +554,7 @@ public partial class PageInstanceOverall
     // 补全文件
     private void BtnManageCheck_Click(object sender, MouseButtonEventArgs e)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-repair")) return;
         try
         {
             // 忽略文件检查提示
@@ -639,8 +619,11 @@ public partial class PageInstanceOverall
     }
 
     // 重置
-    private void BtnManageRestore_Click(object sender, MouseButtonEventArgs e)
+    private async void BtnManageRestore_Click(object sender, MouseButtonEventArgs e)
     {
+        if (!RestrictedFeaturePolicy.Check("minecraft-reset")) return;
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
         try
         {
             var currentVersion = PageInstanceLeft.McInstance.Info;
@@ -658,7 +641,7 @@ public partial class PageInstanceOverall
             }
 
             // 确认操作
-            if (ModMain.MyMsgBox(
+            if (await ModMain.MyMsgBoxAsync(
                     Lang.Text("Instance.Overall.Reset.ConfirmMessage", PageInstanceLeft.McInstance.Name), Lang.Text("Instance.Overall.Reset.ConfirmTitle"), Lang.Text("Common.Action.Confirm"), Lang.Text("Common.Action.Cancel")) == 2)
                 return;
 
@@ -708,6 +691,10 @@ public partial class PageInstanceOverall
                 ModBase.LogLevel.Msgbox,
                 userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
         }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
+        }
     }
 
     // 测试游戏
@@ -731,8 +718,10 @@ public partial class PageInstanceOverall
 
     // 删除实例
     // 修改此代码时，同时修改 PageSelectRight 中的代码
-    private void BtnManageDelete_Click(object sender, MouseButtonEventArgs e)
+    private async void BtnManageDelete_Click(object sender, MouseButtonEventArgs e)
     {
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
         try
         {
             var isShiftPressed = Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift);
@@ -753,7 +742,7 @@ public partial class PageInstanceOverall
                 (false, false) => "Instance.Overall.Delete.ConfirmMessage"
             };
 
-            var confirmResult = ModMain.MyMsgBox(
+            var confirmResult = await ModMain.MyMsgBoxAsync(
                 Lang.Text(confirmMessageKey, PageInstanceLeft.McInstance.Name),
                 Lang.Text("Instance.Overall.Delete.ConfirmTitle"),
                 button2: Lang.Text("Common.Action.Cancel"),
@@ -807,35 +796,56 @@ public partial class PageInstanceOverall
                 ModBase.LogLevel.Msgbox,
                 userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
         }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
+        }
     }
 
     // 修补核心
-    private void BtnManagePatch_Click(object sender, MouseButtonEventArgs e)
+    private async void BtnManagePatch_Click(object sender, MouseButtonEventArgs e)
     {
-        switch (ModMain.MyMsgBox(
-                    Lang.Text("Instance.Overall.Patch.ConfirmMessage", PageInstanceLeft.McInstance.Name),
-                    Lang.Text("Instance.Overall.Patch.ConfirmTitle"), button2: Lang.Text("Common.Action.Cancel")))
+        var ctl = sender as Control;
+        if (ctl is not null) ctl.IsEnabled = false;
+        try
         {
-            case 1:
+            switch (await ModMain.MyMsgBoxAsync(
+                        Lang.Text("Instance.Overall.Patch.ConfirmMessage", PageInstanceLeft.McInstance.Name),
+                        Lang.Text("Instance.Overall.Patch.ConfirmTitle"), button2: Lang.Text("Common.Action.Cancel")))
             {
-                var userInput = SystemDialogs.SelectFile(Lang.Text("Instance.Overall.Patch.SelectFile.Filter"), Lang.Text("Instance.Overall.Patch.SelectFile.Title"));
-                if (userInput is null || string.IsNullOrWhiteSpace(userInput))
-                    return;
-                HintService.Hint(Lang.Text("Instance.Overall.Patch.Patching"));
-                ModBase.RunInNewThread(() =>
+                case 1:
                 {
-                    var core = new GameCore(PageInstanceLeft.McInstance.PathInstance + PageInstanceLeft.McInstance.Name +
-                                            ".jar");
-                    core.AddToCore(userInput);
-                    HintService.Hint(Lang.Text("Instance.Overall.Patch.Success"), HintType.Success);
-                    Config.Instance.DisableAssetVerifyV2[PageInstanceLeft.McInstance.PathInstance] = true;
-                });
-                break;
+                    var userInput = SystemDialogs.SelectFile(Lang.Text("Instance.Overall.Patch.SelectFile.Filter"), Lang.Text("Instance.Overall.Patch.SelectFile.Title"));
+                    if (userInput is null || string.IsNullOrWhiteSpace(userInput))
+                        return;
+                    HintService.Hint(Lang.Text("Instance.Overall.Patch.Patching"));
+                    ModBase.RunInNewThread(() =>
+                    {
+                        var core = new GameCore(PageInstanceLeft.McInstance.PathInstance + PageInstanceLeft.McInstance.Name +
+                                                ".jar");
+                        core.AddToCore(userInput);
+                        HintService.Hint(Lang.Text("Instance.Overall.Patch.Success"), HintType.Success);
+                        Config.Instance.DisableAssetVerifyV2[PageInstanceLeft.McInstance.PathInstance] = true;
+                    });
+                    break;
+                }
+                case 2:
+                {
+                    return;
+                }
             }
-            case 2:
-            {
-                return;
-            }
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(
+                ex,
+                "修补核心失败",
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Instance.Overall.Error.OperationFailed"));
+        }
+        finally
+        {
+            if (ctl is not null) ctl.IsEnabled = true;
         }
     }
 

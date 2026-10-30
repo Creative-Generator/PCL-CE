@@ -21,6 +21,8 @@ namespace PCL;
 
 public partial class PageDownloadCompDetail
 {
+    private readonly PageDownloadCompDetailViewModel _vm = new();
+
     // 资源下载；整合包另存为
     public static Dictionary<ModComp.CompType, string> cachedFolder = new(); // 仅在本次缓存的下载文件夹
     private MyCompItem _compItem;
@@ -28,7 +30,7 @@ public partial class PageDownloadCompDetail
 
     private void Init()
     {
-        ModAnimation.AniControlEnabled += 1;
+        ModAnimation.AniBeginControl();
         _project = ModMain.frmMain.pageCurrent.additional.Value.CompProject;
         PanBack.ScrollToHome();
         // 重启加载器
@@ -47,21 +49,19 @@ public partial class PageDownloadCompDetail
         PanIntro.Children.Insert(0, _compItem);
 
         // 决定按钮显示
-        BtnIntroWeb.Text = _project.FromCurseForge ? "CurseForge" : "Modrinth";
-        BtnIntroWiki.Visibility = Lang.IsChineseMainland && _project.WikiId != 0
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        BtnTranslate.Visibility = Lang.IsChineseMainland
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        _vm.ApplyProjectState(_project);
         RefreshFavoriteButton();
 
-        ModAnimation.AniControlEnabled -= 1;
+        ModAnimation.AniEndControl();
     }
 
     // 整合包安装
-    public void Install_Click(MyListItem sender, EventArgs e)
+    public async void Install_Click(MyListItem sender, EventArgs e)
     {
+        if (!RestrictedFeaturePolicy.Check("online-modpack-install")) return;
+        var control = sender as FrameworkElement;
+        if (control is not null)
+            control.IsEnabled = false;
         try
         {
             // 获取基本信息
@@ -76,7 +76,8 @@ public partial class PageDownloadCompDetail
             var validate = new FolderNameValidator(ModFolder.mcFolderSelected + "versions");
             if (!validate.Validate(packName).IsValid)
                 packName = "";
-            var instanceName = ModMain.MyMsgBoxInput(Lang.Text("Download.Comp.Detail.InputInstanceName"), "", packName, [validate]);
+            var instanceName = await ModMain.MyMsgBoxInputAsync(Lang.Text("Download.Comp.Detail.InputInstanceName"), "",
+                packName, [validate]);
             if (string.IsNullOrEmpty(instanceName))
                 return;
 
@@ -134,6 +135,11 @@ public partial class PageDownloadCompDetail
                 "下载资源整合包失败",
                 ModBase.LogLevel.Feedback,
                 userSummary: Lang.Text("Download.Comp.Error.OperationFailed"));
+        }
+        finally
+        {
+            if (control is not null)
+                control.IsEnabled = true;
         }
     }
 
@@ -217,7 +223,7 @@ public partial class PageDownloadCompDetail
                 }
             }
 
-            var target = SystemDialogs.SelectSaveFile(Lang.Text("Download.Comp.Detail.SelectWorldInstallLocation"), file.FileName, Lang.Text("Download.Comp.Detail.WorldFile.Filter"),
+            var target = SystemDialogs.SelectSaveFile(Lang.Text("Download.Comp.Detail.SelectWorldInstallLocation"), file.FileName ?? "", Lang.Text("Download.Comp.Detail.WorldFile.Filter"),
                 defaultFolder);
             if (string.IsNullOrEmpty(target))
                 return;
@@ -387,8 +393,9 @@ public partial class PageDownloadCompDetail
                     var target = SystemDialogs.SelectSaveFile(Lang.Text("Download.Comp.Detail.SelectSaveLocation"),
                         fileName, Lang.Text("Download.Comp.Detail.ResourceFile.Filter", desc) + "|" +
                                   (file.Type == ModComp.CompType.Mod
-                                      ? file.FileName.EndsWith(".litemod") ? "*.litemod" : "*.jar"
-                                      : file.FileName.EndsWith(".mrpack")
+                                      ? file.FileName?.EndsWith(".litemod") == true ? "*.litemod" : "*.jar"
+                                      : file.FileName?.EndsWith(".mrpack") == true
+                                        || (string.IsNullOrWhiteSpace(file.FileName) && file.Type == ModComp.CompType.ModPack && !file.FromCurseForge)
                                           ? "*.mrpack"
                                           : "*.zip"),
                         defaultFolder);
@@ -605,12 +612,31 @@ public partial class PageDownloadCompDetail
     // 翻译简介
     private async void BtnTranslate_Click(object sender, EventArgs e)
     {
-        HintService.Hint(Lang.Text("Download.Comp.Detail.DescriptionTranslating", _project.TranslatedName));
-        var chineseDescription = await _project.ChineseDescription;
-        if (chineseDescription is null)
-            return;
-        ModMain.MyMsgBox(Lang.Text("Download.Comp.Detail.DescriptionTranslationResult", _project.Description,
-            chineseDescription));
+        var control = sender as FrameworkElement;
+        if (control is not null)
+            control.IsEnabled = false;
+        try
+        {
+            HintService.Hint(Lang.Text("Download.Comp.Detail.DescriptionTranslating", _project.TranslatedName));
+            var chineseDescription = await _project.ChineseDescription;
+            if (chineseDescription is null)
+                return;
+            await ModMain.MyMsgBoxAsync(Lang.Text("Download.Comp.Detail.DescriptionTranslationResult",
+                _project.Description, chineseDescription));
+        }
+        catch (Exception ex)
+        {
+            ModBase.Log(
+                ex,
+                "翻译资源简介失败",
+                ModBase.LogLevel.Feedback,
+                userSummary: Lang.Text("Download.Comp.Error.OperationFailed"));
+        }
+        finally
+        {
+            if (control is not null)
+                control.IsEnabled = true;
+        }
     }
 
     /// <summary>
@@ -622,8 +648,8 @@ public partial class PageDownloadCompDetail
         {
             if (_project is null) return;
 
-            var isFavourite = ModComp.CompFavorites.IsFavourite(_project.Id);
-            BtnFavorites.SvgIcon = isFavourite ? "lucide/heart-filled" : "lucide/heart";
+            _vm.RefreshFavorite(_project.Id);
+            BtnFavorites.SvgIcon = _vm.IsFavorite ? "lucide/heart-filled" : "lucide/heart";
 
             // 刷新顶部的项目卡片收藏状态
             if (_compItem is not null)
@@ -653,6 +679,7 @@ public partial class PageDownloadCompDetail
         Loaded += (_, _) => LoadTargetFromAdditional();
         PageEnter += Init;
         InitializeComponent();
+        DataContext = _vm;
         Load.StateChanged += Load_State;
         BtnIntroWeb.Click += BtnIntroWeb_Click;
         BtnIntroWiki.Click += BtnIntroWiki_Click;
@@ -661,6 +688,8 @@ public partial class PageDownloadCompDetail
         BtnIntroLinkCopy.Click += BtnIntroLinkCopy_Click;
         BtnTranslate.Click += BtnTranslate_Click;
     }
+
+    public PageDownloadCompDetailViewModel ViewModel => _vm;
 
     // 初始化加载器信息
     private void PageDownloadCompDetail_Inited(object sender, EventArgs e)
@@ -708,74 +737,15 @@ public partial class PageDownloadCompDetail
         }
     }
 
-    // 结果 UI 化
-    private class CardSorter : IComparer<string>
-    {
-        public readonly string topmost = "";
-
-        public CardSorter(string topmost = "")
-        {
-            this.topmost = topmost ?? "";
-        }
-
-        public int Compare(string x, string y)
-        {
-            // 相同
-            if ((x ?? "") == (y ?? ""))
-                return 0;
-            // 置顶
-            if ((x ?? "") == (topmost ?? ""))
-                return -1;
-            if ((y ?? "") == (topmost ?? ""))
-                return 1;
-            // 特殊版本
-            var isXSpecial = !x.Contains(".");
-            var isYSpecial = !y.Contains(".");
-            if (isXSpecial && isYSpecial)
-                return string.Compare(x, y, StringComparison.Ordinal);
-            if (isXSpecial)
-                return 1;
-            if (isYSpecial)
-                return -1;
-            // 比较版本号
-            var versionCodeSort = -McVersionComparer.CompareVersion(x.Replace(x.BeforeFirst(" ") + " ", ""),
-                y.Replace(y.BeforeFirst(" ") + " ", ""));
-            if (versionCodeSort != 0)
-                return versionCodeSort;
-            // 比较全部
-            return -McVersionComparer.CompareVersion(x, y);
-        }
-    }
-
     private string? _instanceFilter;
     private string? _modLoaderFilter;
     private bool groupedDrop; // 是否按 Drop 筛选（1.21 / 1.20 / 1.19 / ...）而非小版本号（1.21.1 / 1.21 / 1.20.4 / ...）
 
     private bool groupedOld; // 是否折叠远古版本为一个选项
 
-    // 筛选类型相同的结果（Modrinth 会返回 Mod、服务端插件、数据包混合的列表）
-    private List<ModComp.CompFile> GetResults()
-    {
-        var results = _compFileLoader.output;
-        if (_pageType == ModComp.CompType.Any)
-        {
-            results = results.Where(r => r.Type != ModComp.CompType.Plugin).ToList();
-        }
-        else if (_pageType == ModComp.CompType.Shader || _pageType == ModComp.CompType.ResourcePack)
-        {
-        }
-        // 不筛选光影和资源包，否则原版光影会因为是资源包格式而被过滤（Meloong-Git/#6473）
-        else
-        {
-            results = results.Where(r => r.Type == _pageType).ToList();
-        }
-
-        return results;
-    }
-
     private void Load_OnFinish()
     {
-        var results = GetResults();
+        var results = PageDownloadCompDetailViewModel.FilterResults(_compFileLoader.output, _pageType);
 
         // 初始化筛选器
         List<string> instanceFilters = null;
@@ -819,25 +789,25 @@ public partial class PageDownloadCompDetail
         // UI 化筛选器
         PanInstanceFilter.Children.Clear();
         PanModLoaderFilter.Children.Clear();
+        PanInstanceFilterLabel.Children.Clear();
         if (_pageType == ModComp.CompType.Mod)
         {
-            PanInstanceFilter.Margin = new Thickness(10d, 10d, 0d, 5d);
+            PanInstanceFilterHost.Margin = new Thickness(10d, 10d, 0d, 5d);
             PanModLoaderFilter.Margin = new Thickness(10d, 5d, 0d, 10d);
         }
         else
         {
-            PanInstanceFilter.Margin = new Thickness(10d, 10d, 0d, 10d);
+            PanInstanceFilterHost.Margin = new Thickness(10d, 10d, 0d, 10d);
             PanModLoaderFilter.Margin = new Thickness(0d);
         }
 
+        _vm.SetFilterVisibility(instanceFilters.Count >= 2);
         if (instanceFilters.Count < 2)
         {
-            CardFilter.Visibility = Visibility.Collapsed;
             _instanceFilter = null;
         }
         else
         {
-            CardFilter.Visibility = Visibility.Visible;
             // 插入标签
             if (_pageType == ModComp.CompType.Mod)
             {
@@ -847,7 +817,7 @@ public partial class PageDownloadCompDetail
                     VerticalAlignment = VerticalAlignment.Center,
                     Margin = new Thickness(2d, 0d, 0d, 0d)
                 };
-                PanInstanceFilter.Children.Add(instanceTextBlock);
+                PanInstanceFilterLabel.Children.Add(instanceTextBlock);
                 var modLoaderTextBlock = new TextBlock
                 {
                     Text = Lang.Text("Download.Comp.Detail.LoaderFilter"),
@@ -864,7 +834,7 @@ public partial class PageDownloadCompDetail
             {
                 var newButton = new MyRadioButton
                 {
-                    Text = version, Margin = new Thickness(2d, 0d, 2d, 0d),
+                    Text = version, Margin = new Thickness(2d, 0d, 2d, 4d),
                     ColorType = MyRadioButton.ColorState.Highlight
                 };
                 newButton.LabText.Margin = new Thickness(-2, 0d, 10d, 0d);
@@ -903,10 +873,7 @@ public partial class PageDownloadCompDetail
                 if (targetFile is not null)
                 {
                     var targetGroup = GetGroupedVersionName(_targetInstance, groupedDrop, groupedOld);
-                    var children = _pageType == ModComp.CompType.Mod
-                        ? PanInstanceFilter.Children.Cast<UIElement>().Skip(1)
-                        : PanInstanceFilter.Children.Cast<UIElement>();
-                    foreach (MyRadioButton button in (IEnumerable)children)
+                    foreach (MyRadioButton button in PanInstanceFilter.Children)
                     {
                         if ((button.Text ?? "") != (targetGroup ?? ""))
                             continue;
@@ -938,7 +905,7 @@ public partial class PageDownloadCompDetail
             // 注意：在 Mod 下 index 0 是 TextBlock
             var index = _pageType == ModComp.CompType.Mod ? 1 : 0;
             if (instanceToCheck is null)
-                instanceToCheck = (MyRadioButton)PanInstanceFilter.Children[index];
+                instanceToCheck = (MyRadioButton)PanInstanceFilter.Children[0];
             if (modLoaderToCheck is null && (_pageType == ModComp.CompType.Mod))
                 modLoaderToCheck = (MyRadioButton)PanModLoaderFilter.Children[index];
             instanceToCheck.Checked = true;
@@ -952,7 +919,7 @@ public partial class PageDownloadCompDetail
 
     private void UpdateFilterResult()
     {
-        var results = GetResults();
+        var results = PageDownloadCompDetailViewModel.FilterResults(_compFileLoader.output, _pageType);
         if (results is null)
             return;
 
@@ -970,7 +937,8 @@ public partial class PageDownloadCompDetail
         var hasMultipleLoaders = _project.ModLoaders.Count > 1;
 
         // 2. 核心数据归类 (使用 Dictionary 配合 HashSet 去重)
-        var dict = new SortedDictionary<string, List<ModComp.CompFile>>(new CardSorter(targetCardName));
+        var dict = new SortedDictionary<string, List<ModComp.CompFile>>(
+            new PageDownloadCompDetailViewModel.CardSorter(targetCardName));
         dict.Add(Lang.Text("Download.Comp.Detail.VersionGroup.Other"), new List<ModComp.CompFile>());
 
         // 用于记录每个卡片内已存在的 version，防止 Contains(version) 的 O(n) 消耗
