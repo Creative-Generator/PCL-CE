@@ -9,6 +9,8 @@ namespace PCL;
 
 public partial class PageSetupGameManage
 {
+    private readonly PageSetupGameManageViewModel _vm = new();
+
     private new bool isLoaded;
 
     public PageSetupGameManage()
@@ -16,6 +18,8 @@ public partial class PageSetupGameManage
         InitializeComponent();
         Loaded += PageSetupSystem_Loaded;
     }
+
+    public PageSetupGameManageViewModel ViewModel => _vm;
 
     private void PageSetupSystem_Loaded(object sender, RoutedEventArgs e)
     {
@@ -27,7 +31,8 @@ public partial class PageSetupGameManage
             return;
         isLoaded = true;
 
-        ModAnimation.AniControlEnabled += 1;
+        ModAnimation.AniBeginControl();
+        DataContext = _vm;
         Reload();
         SliderLoad();
 
@@ -44,24 +49,21 @@ public partial class PageSetupGameManage
             RowModManageStyleGap.Height = new GridLength(0);
         }
 
-        ModAnimation.AniControlEnabled -= 1;
+        ModAnimation.AniEndControl();
     }
 
     public void Reload()
     {
+        _vm.Reload();
+
         // 下载
         SliderDownloadThread.Value = Config.Download.ThreadLimit;
+        SliderDownloadFileConnection.Value = Config.Download.FileConnectionLimit;
         SliderDownloadSpeed.Value = Config.Download.SpeedLimit;
-        ComboDownloadSource.SelectedIndex = Config.Download.FileSource;
-        ComboDownloadVersion.SelectedIndex = Config.Download.VersionListSource;
         CheckDownloadAutoSelectVersion.Checked = Config.Download.AutoSelectInstance;
         CheckFixAuthlib.Checked = Config.Download.FixAuthLib;
 
         // Mod 与整合包
-        ComboDownloadTranslateV2.SelectedIndex = Config.Download.Comp.NameFormatV2;
-        ComboDownloadMod.SelectedIndex = Config.Download.Comp.CompSourceSolution;
-        ComboModLocalNameStyle.SelectedIndex = Config.Download.Comp.UiCompNameSolution;
-        ComboDownloadQuickBehavior.SelectedIndex = Config.Download.Comp.QuickDownloadBehavior;
         CheckDownloadIgnoreQuilt.Checked = Config.Download.Comp.IgnoreQuilt;
         CheckDownloadAutoInstallDependencies.Checked = Config.Download.Comp.AutoInstallDependencies;
         CheckDownloadClipboard.Checked = Config.Download.Comp.ReadClipboard;
@@ -100,22 +102,23 @@ public partial class PageSetupGameManage
     private void CheckBoxChange(object senderRaw, bool user)
     {
         var sender = (MyCheckBox)senderRaw;
-        if (ModAnimation.AniControlEnabled == 0)
+        if (!ModAnimation.AniExitsAnyControl())
             SetByTag(sender.Tag?.ToString(), sender.Checked);
     }
 
     private void SliderChange(object senderRaw, bool user)
     {
         var sender = (MySlider)senderRaw;
-        if (ModAnimation.AniControlEnabled == 0)
+        if (!ModAnimation.AniExitsAnyControl())
             SetByTag(sender.Tag?.ToString(), sender.Value);
     }
 
     private void ComboChange(object senderRaw, SelectionChangedEventArgs e)
     {
         var sender = (MyComboBox)senderRaw;
-        if (ModAnimation.AniControlEnabled == 0)
-            SetByTag(sender.Tag?.ToString(), sender.SelectedIndex);
+        if (ModAnimation.AniExitsAnyControl() || sender.SelectedIndex < 0)
+            return;
+        SetByTag(sender.Tag?.ToString(), sender.SelectedIndex);
     }
 
     private static void SetByTag(string tag, object value)
@@ -125,6 +128,7 @@ public partial class PageSetupGameManage
     private void SliderLoad()
     {
         SliderDownloadThread.getHintText = new Func<object, object>(v => (int)v + 1);
+        SliderDownloadFileConnection.getHintText = new Func<object, object>(v => (int)v + 1);
         SliderDownloadSpeed.getHintText = new Func<object, object>(v =>
         {
             int value = (int)v;
@@ -144,7 +148,7 @@ public partial class PageSetupGameManage
 
     private void SliderDownloadThread_PreviewChange(object sender, ModBase.RouteEventArgs e)
     {
-        if (SliderDownloadThread.Value < 100)
+        if (SliderDownloadThread.Value < 64)
             return;
         if (!States.Hint.LargeDownloadThread)
         {

@@ -3437,27 +3437,42 @@ public static class ModComp
     public static string CompFileNameGet(CompProject proj, CompFile file)
     {
         string fileName;
+        var hasSourceName = !string.IsNullOrWhiteSpace(file.FileName);
+        var defaultExtension = file.Type switch
+        {
+            CompType.Mod => ".jar",
+            CompType.ModPack => file.FromCurseForge ? ".zip" : ".mrpack",
+            _ => ".zip"
+        };
         if ((proj.TranslatedName ?? "") == (proj.RawName ?? ""))
         {
-            fileName = file.FileName;
+            var fallbackBase = !string.IsNullOrWhiteSpace(proj.RawName) ? proj.RawName : "download";
+            fileName = hasSourceName ? file.FileName : $"{fallbackBase}{defaultExtension}";
         }
         else
         {
             var chineseName = proj.TranslatedName.BeforeFirst(" (").BeforeFirst(" - ").Replace(@"\", "＼")
                 .Replace("/", "／").Replace("|", "｜").Replace(":", "：").Replace("<", "＜").Replace(">", "＞")
                 .Replace("*", "＊").Replace("?", "？").Replace("\"", "").Replace("： ", "：");
+            var extension = hasSourceName ? Path.GetExtension(file.FileName) : "";
+            var nameWithoutExtension = hasSourceName && !string.IsNullOrEmpty(extension)
+                ? file.FileName[..^extension.Length]
+                : file.FileName;
+            var sourcePart = hasSourceName ? file.FileName : defaultExtension;
             fileName = Config.Download.Comp.NameFormatV2 switch
             {
-                0 => $"【{chineseName}】{file.FileName}",
-                1 => $"[{chineseName}] {file.FileName}",
-                2 => $"{chineseName}-{file.FileName}",
-                3 => $"{file.FileName}-{chineseName}",
-                _ => file.FileName
+                0 => $"【{chineseName}】{sourcePart}",
+                1 => $"[{chineseName}] {sourcePart}",
+                2 => $"{chineseName}-{sourcePart}",
+                3 => !string.IsNullOrWhiteSpace(nameWithoutExtension)
+                    ? $"{nameWithoutExtension}-{chineseName}{extension}"
+                    : $"{chineseName}{defaultExtension}",
+                _ => hasSourceName ? file.FileName : $"{chineseName}{defaultExtension}"
             };
         }
 
         if (file.Type == CompType.Mod)
-            fileName = fileName.Replace("~", "-"); // ~ 会导致 Mixin 加载失败
+            fileName = fileName?.Replace("~", "-");
         return CompFileNameSanitize(fileName);
     }
 
@@ -3540,9 +3555,11 @@ public static class ModComp
                         break;
                     case 2: // 询问并下载到选择的实例
                     {
-                        var instance = _QuickDownloadPickInstance(project, files);
-                        if (instance is null) return;
-                        _QuickDownloadToInstance(project, files, instance);
+                        var instances = _QuickDownloadPickInstances(project, files);
+                        if (instances is null) return;
+                        var startedTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var instance in instances)
+                            _QuickDownloadToInstance(project, files, instance, startedTargets);
                         break;
                     }
                     case 3: // 询问并下载到一个路径
@@ -3562,7 +3579,8 @@ public static class ModComp
     }
 
     /// <summary>下载到指定实例的最新兼容版本。</summary>
-    private static void _QuickDownloadToInstance(CompProject project, List<CompFile> files, McInstance? instance)
+    private static void _QuickDownloadToInstance(CompProject project, List<CompFile> files, McInstance? instance,
+        ISet<string>? startedTargets = null)
     {
         if (instance is null)
         {
@@ -3582,12 +3600,15 @@ public static class ModComp
         var folder = instance.PathIndie + _GetSubFolder(project.Type);
         Directory.CreateDirectory(folder);
         var target = Path.Combine(folder, CompFileNameGet(project, file));
+        //只下载一次，避免并发写同一文件
+        if (startedTargets is not null && !startedTargets.Add(target))
+            return;
         _StartQuickDownload(file, target);
         HintService.Hint(Lang.Text("Download.Comp.QuickDownload.Hint.DownloadStarted", project.RawName), HintType.Success);
     }
 
     /// <summary>弹实例列表让用户选择，返回选中的实例（兼容者优先、当前选中实例居首）；取消或无兼容实例返回 null。</summary>
-    private static McInstance? _QuickDownloadPickInstance(CompProject project, List<CompFile> files)
+    private static List<McInstance>? _QuickDownloadPickInstances(CompProject project, List<CompFile> files)
     {
         var needLoad = ModInstanceList.mcInstanceListLoader.State != ModBase.LoadState.Finished;
         if (needLoad)
@@ -3612,18 +3633,18 @@ public static class ModComp
                 .OrderBy(v => v == current ? 0 : 1)
                 .ThenBy(v => v.Name)
                 .ToList();
-        int? idx = ModBase.RunInUiWait(() =>
+        var indices = ModBase.RunInUiWait(() =>
         {
             var options = compatible
-                .Select(v => (IMyRadio)new MyRadioBox { Text = v.Name })
+                .Select(v => new MyListItem { Title = v.Name })
                 .ToList();
-            return ModMain.MyMsgBoxSelect(options,
+            return ModMain.MyMsgBoxMultiSelect(options,
                 Lang.Text("Download.Comp.QuickDownload.ChooseInstance.Title"),
                 button1: Lang.Text("Common.Action.Continue"),
                 button2: Lang.Text("Common.Action.Cancel"));
         });
-        if (idx is null) return null;
-        return compatible[idx.Value];
+        if (indices is null) return null;
+        return indices.Select(i => compatible[i]).ToList();
     }
 
     /// <summary>下载最新版本到用户选择的文件夹。</summary>
