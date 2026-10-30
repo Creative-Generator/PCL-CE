@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -76,6 +76,7 @@ public static class ModMain
     public static PageInstanceOverall? frmInstanceOverall;
     public static PageInstanceCompResource? frmInstanceMod;
     public static PageInstanceModDisabled? frmInstanceModDisabled;
+    public static PageInstanceCompJarInJar? frmInstanceModJarInJar;
     public static PageInstanceScreenshot? frmInstanceScreenshot;
     public static PageInstanceSaves? frmInstanceSaves;
     public static PageInstanceCompResource? frmInstanceShader;
@@ -272,6 +273,11 @@ public static class ModMain
         public bool ForceWait;
 
         /// <summary>
+        ///     选择模式：是否允许勾选多个选项
+        /// </summary>
+        public bool MultiSelect;
+
+        /// <summary>
         ///     有多个按钮时，是否给第一个按钮加高亮。
         /// </summary>
         public bool HighLight;
@@ -305,6 +311,12 @@ public static class ModMain
         public Collection<IValidator<string>> ValidateRules;
 
         public DispatcherFrame WaitFrame = new(true);
+
+        public readonly TaskCompletionSource<int?> Completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public readonly TaskCompletionSource<object?> CompletionObject =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public string AuthServerDefault = "";
         public IReadOnlyDictionary<string, string>? AuthServerPresets;
@@ -584,6 +596,32 @@ public static class ModMain
         return converter.Result?.ToString() ?? string.Empty;
     }
 
+    public static async Task<string> MyMsgBoxAuthServerAsync(string defaultServer,
+        IReadOnlyDictionary<string, string> presets, string? title = null)
+    {
+        var converter = new MyMsgBoxConverter
+        {
+            Type = MyMsgBoxType.AuthServer,
+            Title = title ?? Lang.Text("Launch.Account.Auth.SelectServer"),
+            Button1 = GetDefaultConfirmText(),
+            Button2 = GetDefaultCancelText(),
+            AuthServerDefault = defaultServer,
+            AuthServerPresets = presets,
+            ForceWait = true
+        };
+        WaitingMyMsgBox.Add(converter);
+        if (ModBase.RunInUi())
+            MyMsgBoxTick();
+        if (frmMain is null)
+        {
+            WaitingMyMsgBox.Remove(converter);
+            ModBase.Log("[Control] 主窗体加载完成前出现意料外的异步验证服务器弹窗", ModBase.LogLevel.Debug);
+            return string.Empty;
+        }
+
+        return await converter.CompletionObject.Task as string ?? string.Empty;
+    }
+
     /// <summary>
     ///     显示选择框并返回选择的第几项（从 0 开始）。若点击第二个按钮，则返回 Nothing。
     /// </summary>
@@ -621,6 +659,145 @@ public static class ModMain
         return (int?)converter.Result;
     }
 
+    /// <summary>
+    ///     显示多选选择框并返回勾选的所有项索引（从 0 开始）。若点击第二个按钮，则返回 Nothing。
+    /// </summary>
+    /// <param name="selections">需要展示的可勾选列表项。</param>
+    /// <param name="title">弹窗的标题。</param>
+    /// <param name="button1">显示的第一个按钮，默认为 “确定”。</param>
+    /// <param name="button2">显示的第二个按钮，默认为空。</param>
+    /// <param name="isWarn">是否为警告弹窗，若为 True，弹窗配色和背景会变为红色。</param>
+    public static List<int>? MyMsgBoxMultiSelect(List<MyListItem> selections, string? title = null,
+        string? button1 = null, string? button2 = "", bool isWarn = false)
+    {
+        title ??= GetDefaultDialogTitle();
+        button1 ??= GetDefaultConfirmText();
+        button2 ??= "";
+        // 将弹窗列入队列
+        var converter = new MyMsgBoxConverter
+        {
+            Type = MyMsgBoxType.Select, MultiSelect = true, Button1 = button1, Button2 = button2, Content = selections,
+            IsWarn = isWarn, Title = title
+        };
+        WaitingMyMsgBox.Add(converter);
+        // 虽然我也不知道这是啥但是能用就成了 :)
+        try
+        {
+            if (frmMain is not null)
+                frmMain.DragStop();
+            ComponentDispatcher.PushModal();
+            Dispatcher.PushFrame(converter.WaitFrame);
+        }
+        finally
+        {
+            ComponentDispatcher.PopModal();
+        }
+
+        ModBase.Log($"[Control] 多选弹框返回：{converter.Result ?? "null"}");
+        return (List<int>?)converter.Result;
+    }
+
+    public static async Task<int> MyMsgBoxAsync(string caption, string? title = null, string? button1 = null,
+        string? button2 = "", string? button3 = "", bool isWarn = false, bool highLight = true)
+    {
+        title ??= GetDefaultDialogTitle();
+        button1 ??= GetDefaultConfirmText();
+        button2 ??= "";
+        button3 ??= "";
+        var converter = new MyMsgBoxConverter
+        {
+            Type = MyMsgBoxType.Text, Button1 = button1, Button2 = button2, Button3 = button3, Text = caption,
+            IsWarn = isWarn, Title = title, HighLight = highLight, ForceWait = true
+        };
+        WaitingMyMsgBox.Add(converter);
+        if (ModBase.RunInUi())
+            MyMsgBoxTick();
+        if (frmMain is null)
+        {
+            WaitingMyMsgBox.Remove(converter);
+            ModBase.Log("[Control] 主窗体加载完成前出现意料外的异步等待弹窗：" + button1 + "," + button2 + "," + button3,
+                ModBase.LogLevel.Debug);
+            return 1;
+        }
+
+        return await converter.Completion.Task ?? 0;
+    }
+
+    public static async Task<string?> MyMsgBoxInputAsync(string title, string text = "", string defaultInput = "",
+        Collection<IValidator<string>>? validateRules = null, string hintText = "", string? button1 = null,
+        string? button2 = null, bool isWarn = false)
+    {
+        button1 ??= GetDefaultConfirmText();
+        button2 ??= GetDefaultCancelText();
+        var converter = new MyMsgBoxConverter
+        {
+            Text = text, HintText = hintText, Type = MyMsgBoxType.Input,
+            ValidateRules = validateRules ?? [], Button1 = button1, Button2 = button2,
+            Content = defaultInput, IsWarn = isWarn, Title = title, ForceWait = true
+        };
+        WaitingMyMsgBox.Add(converter);
+        if (ModBase.RunInUi())
+            MyMsgBoxTick();
+        if (frmMain is null)
+        {
+            WaitingMyMsgBox.Remove(converter);
+            ModBase.Log("[Control] 主窗体加载完成前出现意料外的异步输入弹窗：" + button1 + "," + button2,
+                ModBase.LogLevel.Debug);
+            return null;
+        }
+
+        return await converter.CompletionObject.Task as string;
+    }
+
+    public static async Task<int?> MyMsgBoxSelectAsync(List<IMyRadio> selections, string? title = null, string? button1 = null,
+        string? button2 = "", bool isWarn = false)
+    {
+        title ??= GetDefaultDialogTitle();
+        button1 ??= GetDefaultConfirmText();
+        button2 ??= "";
+        var converter = new MyMsgBoxConverter
+        {
+            Type = MyMsgBoxType.Select, Button1 = button1, Button2 = button2, Content = selections, IsWarn = isWarn,
+            Title = title, ForceWait = true
+        };
+        WaitingMyMsgBox.Add(converter);
+        if (ModBase.RunInUi())
+            MyMsgBoxTick();
+        if (frmMain is null)
+        {
+            WaitingMyMsgBox.Remove(converter);
+            ModBase.Log("[Control] 主窗体加载完成前出现意料外的异步选择弹窗：" + button1 + "," + button2,
+                ModBase.LogLevel.Debug);
+            return null;
+        }
+
+        return await converter.CompletionObject.Task as int?;
+    }
+
+    public static async Task<List<int>> MyMsgBoxMultiSelectAsync(List<MyListItem> selections, string? title = null,
+        string? button1 = null, string? button2 = "", bool isWarn = false)
+    {
+        title ??= GetDefaultDialogTitle();
+        button1 ??= GetDefaultConfirmText();
+        button2 ??= "";
+        var converter = new MyMsgBoxConverter
+        {
+            Type = MyMsgBoxType.Select, MultiSelect = true, Button1 = button1, Button2 = button2, Content = selections,
+            IsWarn = isWarn, Title = title, ForceWait = true
+        };
+        WaitingMyMsgBox.Add(converter);
+        if (ModBase.RunInUi())
+            MyMsgBoxTick();
+        if (frmMain is null)
+        {
+            WaitingMyMsgBox.Remove(converter);
+            ModBase.Log("[Control] 主窗体加载完成前出现意料外的异步多选弹窗：" + button1 + "," + button2,
+                ModBase.LogLevel.Debug);
+            return [];
+        }
+
+        return await converter.CompletionObject.Task as List<int> ?? [];
+    }
 
     public static void MyMsgBoxTick()
     {
@@ -723,7 +900,7 @@ public static class ModMain
             if (frmLaunchLeft is null || frmLaunchLeft.AprilPosTrans is null || frmMain.lastMouseArg is null)
                 return;
             if (isAprilGiveup || frmMain.pageCurrent != FormMain.PageType.Launch ||
-                ModAnimation.AniControlEnabled != 0 || !frmLaunchLeft.BtnLaunch.IsLoaded)
+                ModAnimation.AniExitsAnyControl() || !frmLaunchLeft.BtnLaunch.IsLoaded)
                 return;
 
             // 计算是否空闲
@@ -830,22 +1007,22 @@ public static class ModMain
                 {
                     case 0:
                     {
-                        HintService.Hint("放弃吧！只需要点一下右下角的小白旗……");
+                        HintService.Hint(Lang.Text("Main.April.Hint1"));
                         break;
                     }
                     case 1:
                     {
-                        HintService.Hint("看到右下角的那面小白旗了吗？");
+                        HintService.Hint(Lang.Text("Main.April.Hint2"));
                         break;
                     }
                     case 2:
                     {
-                        HintService.Hint("这里建议点一下右下角的小白旗投降呢.jpg");
+                        HintService.Hint(Lang.Text("Main.April.Hint3"));
                         break;
                     }
                     case 3:
                     {
-                        HintService.Hint("右下角的小白旗永远等着你……");
+                        HintService.Hint(Lang.Text("Main.April.Hint4"));
                         break;
                     }
                 }
