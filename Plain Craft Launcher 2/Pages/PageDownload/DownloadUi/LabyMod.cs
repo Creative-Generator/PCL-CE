@@ -1,4 +1,5 @@
 ﻿using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 using PCL.Network;
 using PCL.Network.Loaders;
@@ -24,12 +25,10 @@ public static partial class DownloadUi
             if (Loading
                 .loaderTaskbar
                 .ToList()
-                .Any(ongoingLoader => (ongoingLoader.name ?? "")
-                    == (Lang.Text("Minecraft.Download.Stage.LabyModInstallerDownload") ?? "")))
+                .Any(ongoingLoader =>
+                    ongoingLoader.Identifier == DownloadIdentifier("LabyMod", "Installer")))
             {
-                HintService.Hint(
-                    Lang.Text("Minecraft.Download.Error.InstanceDownloading"),
-                    HintType.Error);
+                HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.InstanceDownloading")));
                 return;
             }
 
@@ -41,7 +40,7 @@ public static partial class DownloadUi
             loaders.Add(
                 new LoaderDownload(
                     Lang.Text("Minecraft.Download.Stage.DownloadMainFile"),
-                    [new DownloadFile([.. address], target, new Common.FileChecker(1024 * 64))]
+                    [new DownloadFile([.. address], target, new FileChecker(1024 * 64))]
                 )
                 {
                     ProgressWeight = 15d
@@ -51,7 +50,8 @@ public static partial class DownloadUi
                 Lang.Text("Minecraft.Download.Stage.LabyModInstallerDownload"),
                 loaders)
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = DownloadIdentifier("LabyMod", "Installer")
             };
             loader.Start();
             Loading.LoaderTaskbarAdd(loader);
@@ -86,12 +86,10 @@ public static partial class DownloadUi
             if (Loading
                 .loaderTaskbar
                 .ToList()
-                .Any(ongoingLoader => (ongoingLoader.name ?? "")
-                    == (Lang.Text("Minecraft.Download.Stage.LabyModInstallerDownload") ?? "")))
+                .Any(ongoingLoader =>
+                    ongoingLoader.Identifier == DownloadIdentifier("LabyMod", "Installer")))
             {
-                HintService.Hint(
-                    Lang.Text("Minecraft.Download.Error.InstanceDownloading"),
-                    HintType.Error);
+                HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.InstanceDownloading")));
                 return;
             }
 
@@ -103,7 +101,7 @@ public static partial class DownloadUi
             loaders.Add(
                 new LoaderDownload(
                     Lang.Text("Minecraft.Download.Stage.DownloadMainFile"),
-                    [new DownloadFile([.. address], target, new Common.FileChecker(1024 * 64))]
+                    [new DownloadFile([.. address], target, new FileChecker(1024 * 64))]
                 )
                 {
                     ProgressWeight = 15d
@@ -113,7 +111,8 @@ public static partial class DownloadUi
                 Lang.Text("Minecraft.Download.Stage.LabyModInstallerDownload"),
                 loaders)
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = DownloadIdentifier("LabyMod", "Installer")
             };
             loader.Start();
             Loading.LoaderTaskbarAdd(loader);

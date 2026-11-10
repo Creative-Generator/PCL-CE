@@ -1,13 +1,15 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
+using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 
 namespace PCL;
 
-public partial class PageLogLeft
+public partial class PageLogLeft : IPageView
 {
     public GameWatcher.Watcher currentLog;
     public int currentUuid;
@@ -16,6 +18,8 @@ public partial class PageLogLeft
     public List<KeyValuePair<int, GameWatcher.Watcher>> shownLogs = new();
 
     private readonly PageLogLeftViewModel _vm = new();
+
+    private bool _refreshed;
 
     public PageLogLeft()
     {
@@ -29,12 +33,30 @@ public partial class PageLogLeft
 
     private void PageLogLeft_Loaded(object sender, RoutedEventArgs e)
     {
+        RefreshOnNavigate();
+    }
+
+    public void OnNavigatedTo(object? parameter)
+    {
+        RefreshOnNavigate();
+    }
+
+    public void OnNavigatedFrom()
+    {
+    }
+
+    private void RefreshOnNavigate()
+    {
+        if (_refreshed)
+            return;
+        _refreshed = true;
         Reload();
         Launcher.frmMain.BtnExtraLog.ShowRefresh();
     }
 
     private void PageLogLeft_Unloaded(object sender, RoutedEventArgs e)
     {
+        _refreshed = false;
         Launcher.frmMain.BtnExtraLog.ShowRefresh();
     }
 
@@ -54,8 +76,14 @@ public partial class PageLogLeft
             Launcher.frmLogLeft.PanList.Children.Clear();
 
             // 测试实例列表
-            Launcher.frmLogLeft.PanList.Children.Add(new TextBlock
-                { Text = _vm.InstancesTitle, Margin = new Thickness(13d, 18d, 5d, 4d), Opacity = 0.6d, FontSize = 12d });
+            var instancesTitle = new TextBlock
+            {
+                Margin = new Thickness(13d, 18d, 5d, 4d),
+                Opacity = 0.6d,
+                FontSize = 12d
+            };
+            instancesTitle.TrySetLocalizedValue("Text", "LogPage.Left.InstancesTitle");
+            Launcher.frmLogLeft.PanList.Children.Add(instancesTitle);
             foreach (var item in shownLogs)
             {
                 // 添加控件
@@ -64,8 +92,14 @@ public partial class PageLogLeft
                 var newItem = new MyListItem
                 {
                     IsScaleAnimationEnabled = false, Type = MyListItem.CheckType.RadioBox, MinPaddingRight = 30,
-                    Title = version.Name, Info = _vm.GetItemInfo(item.Value), Height = 40d, Tag = uuid
+                    Title = version.Name, Height = 40d, Tag = uuid
                 };
+                var versionInfo = version.Info;
+                var startTime = item.Value.gameProcess.StartTime;
+                LocalizedText.TryBind(
+                    newItem,
+                    "Info",
+                    () => $"{versionInfo} - {Lang.Date(startTime, "T")}");
                 newItem.Changed += Launcher.frmLogLeft.Version_Change;
                 // Dim KillButton As New MyIconButton With {.Logo = Logo.IconButtonCross, .LogoScale = 0.85}
                 var removeButton = new MyIconButton { SvgIcon = "lucide/trash-2", LogoScale = 1.1d };
@@ -81,7 +115,7 @@ public partial class PageLogLeft
             if (_vm.ShouldShowMaxLinesHint)
             {
                 States.Hint.MaxGameLog = true;
-                HintService.Hint(Lang.Text("LogPage.MaxLines.Hint", 500));
+                HintService.Show(Hints.Info(Lang.Text("LogPage.MaxLines.Hint", 500)));
             }
 
             isLoading -= 1;
@@ -94,6 +128,19 @@ public partial class PageLogLeft
                 Common.LogLevel.Feedback,
                 userSummary: Lang.Text("LogPage.Error.OperationFailed"));
         }
+    }
+
+    private static SolidColorBrush GetColor(GameLogLevel level)
+    {
+        var name = level switch
+        {
+            GameLogLevel.Debug => "ColorBrushDebug",
+            GameLogLevel.Warn => "ColorBrushWarn",
+            GameLogLevel.Error => "ColorBrushError",
+            GameLogLevel.Fatal => "ColorBrushFatal",
+            _ => ThemeManager.IsDarkMode ? "ColorBrushInfoDark" : "ColorBrushInfo"
+        };
+        return System.Windows.Application.Current.Resources[name] as SolidColorBrush ?? Brushes.White;
     }
 
     private void OnLogOutput(GameWatcher.Watcher sender, GameWatcher.LogOutputEventArgs e)
@@ -109,7 +156,8 @@ public partial class PageLogLeft
                     margin = new Thickness(0d);
                 Common.RunInUi(() =>
                 {
-                    var paragraph = new Paragraph(new Run(e.logText)) { Foreground = e.color, Margin = margin };
+                    var paragraph = new Paragraph(new Run(e.logText))
+                        { Foreground = GetColor(e.Level), Margin = margin };
                     flowDocuments[uuid].Blocks.Add(paragraph);
                     var maxLog = _vm.GetMaxLogCount();
 

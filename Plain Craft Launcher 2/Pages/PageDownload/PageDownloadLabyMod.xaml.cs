@@ -1,4 +1,5 @@
-﻿using PCL.Core.App.Localization;
+﻿using System.Windows.Input;
+using PCL.Core.App.Localization;
 
 namespace PCL;
 
@@ -9,7 +10,6 @@ public partial class PageDownloadLabyMod
         Initialized += (_, _) => LoaderInit();
         Loaded += (_, _) => Init();
         InitializeComponent();
-        BtnWeb.Click += BtnWeb_Click;
     }
 
     private void LoaderInit()
@@ -42,7 +42,10 @@ public partial class PageDownloadLabyMod
                 (a, b) => this.LabyMod_Production_Selected((MyListItem)a, b)));
             PanVersions.Children.Add(DownloadUi.LabyModDownloadListItem(snapshotEntry,
                 (a, b) => this.LabyMod_Snapshot_Selected((MyListItem)a, b)));
-            CardVersions.Title = Lang.Text("Download.Version.VersionListCount", versions.Count);
+            LocalizedText.TryBind(
+                CardVersions,
+                "Title",
+                () => Lang.Text("Download.Version.VersionListCount", versions.Count));
         }
         catch (Exception ex)
         {
@@ -64,7 +67,7 @@ public partial class PageDownloadLabyMod
         DownloadUi.McDownloadLabyModSnapshotLoaderSave();
     }
 
-    private void BtnWeb_Click(object sender, EventArgs e)
+    private void BtnWeb_Click(object sender, MouseButtonEventArgs e)
     {
         Common.OpenWebsite("https://labymod.net");
     }

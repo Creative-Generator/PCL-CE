@@ -14,7 +14,6 @@ public partial class PageDownloadForge
         Initialized += (_, _) => LoaderInit();
         Loaded += (_, _) => Init();
         InitializeComponent();
-        BtnWeb.Click += BtnWeb_Click;
     }
 
     private void LoaderInit()
@@ -52,7 +51,8 @@ public partial class PageDownloadForge
                 newCard.SwapControl = newStack;
                 newCard.InstallMethod = stack =>
                 {
-                    var loadingPickaxe = new MyLoading { Text = Lang.Text("Download.Version.Forge.LoadingList"), Margin = new Thickness(5d) };
+                    var loadingPickaxe = new MyLoading { Margin = new Thickness(5d) };
+                    loadingPickaxe.TrySetLocalizedValue("Text", "Download.Version.Forge.LoadingList");
                     var loader =
                         new Loading.LoaderTask<string, List<GameDownload.DlForgeVersionEntry>>(
                             "DlForgeVersion Main",
@@ -82,16 +82,18 @@ public partial class PageDownloadForge
     // Forge 版本列表加载
     public void Forge_Click(MyLoading sender, MouseButtonEventArgs e)
     {
-        if (sender.State.LoadingState == MyLoading.MyLoadingState.Error)
+        if (sender.State.LoadingState == LoadingState.Error)
             ((Loading.LoaderTask<string, List<GameDownload.DlForgeVersionEntry>>)sender.State)
                 .Start(
                 isForceRestart: true);
     }
 
-    public void Forge_StateChanged(MyLoading sender, MyLoading.MyLoadingState newState,
-        MyLoading.MyLoadingState oldState)
+    public void Forge_StateChanged(
+        MyLoading sender,
+        LoadingState newState,
+        LoadingState oldState)
     {
-        if (newState != MyLoading.MyLoadingState.Stop)
+        if (newState != LoadingState.Stop)
             return;
 
         var card = (MyCard)((FrameworkElement)sender.Parent).Parent;
@@ -117,7 +119,7 @@ public partial class PageDownloadForge
     }
 
     // 介绍栏
-    private void BtnWeb_Click(object sender, EventArgs e)
+    private void BtnWeb_Click(object sender, MouseButtonEventArgs e)
     {
         Common.OpenWebsite("https://files.minecraftforge.net");
     }

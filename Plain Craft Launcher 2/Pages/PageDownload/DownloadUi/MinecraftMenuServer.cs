@@ -2,6 +2,7 @@
 using System.Text;
 using System.Windows;
 using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 using PCL.Network;
 using PCL.Network.Loaders;
@@ -25,12 +26,9 @@ public static partial class DownloadUi
             if (Loading
                 .loaderTaskbar
                 .ToList()
-                .Any(ongoingLoader => (ongoingLoader.name ?? "")
-                    == (Lang.Text("Minecraft.Download.Stage.MinecraftServerDownload", id) ?? "")))
+                .Any(ongoingLoader => ongoingLoader.Identifier == DownloadIdentifier("Server", id)))
             {
-                HintService.Hint(
-                    Lang.Text("Minecraft.Download.Error.ServerDownloading"),
-                    HintType.Error);
+                HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.ServerDownloading")));
                 return;
             }
 
@@ -42,7 +40,7 @@ public static partial class DownloadUi
                         new DownloadFile(
                             GameDownload.DlSourceLauncherOrMetaGet(jsonUrl),
                             Path.Combine(versionFolder, $"{id}.json"),
-                            new Common.FileChecker(canUseExistsFile: false, isJson: true)
+                            new FileChecker(canUseExistsFile: false, isJson: true)
                         )
                     ]
                 )
@@ -67,7 +65,8 @@ public static partial class DownloadUi
                 Lang.Text("Minecraft.Download.Stage.MinecraftServerDownload", id),
                 loaders)
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = DownloadIdentifier("Server", id)
             };
             loader.Start(id);
             Loading.LoaderTaskbarAdd(loader);
@@ -99,16 +98,14 @@ public static partial class DownloadUi
             if (new DirectoryInfo(versionFolder).GetFileSystemInfos().Length == 0)
                 Directory.Delete(versionFolder);
             task.output = [];
-            HintService.Hint(
-                Lang.Text("Minecraft.Download.Error.NoOfficialServerDownload", id),
-                HintType.Error);
+            HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.NoOfficialServerDownload", id)));
             Thread.Sleep(2000);
             task.Abort();
             return task.output;
         }
 
         var jarUrl = serverDownload["url"]?.ToString() ?? "";
-        var checker = new Common.FileChecker(
+        var checker = new FileChecker(
             1024L,
             (long?)serverDownload["size"] ?? -1,
             serverDownload["sha1"]?.ToString() ?? ""

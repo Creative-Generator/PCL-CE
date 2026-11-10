@@ -1,4 +1,5 @@
-﻿using PCL.Core.App.Localization;
+﻿using System.Windows.Input;
+using PCL.Core.App.Localization;
 
 namespace PCL;
 
@@ -9,7 +10,6 @@ public partial class PageDownloadLegacyFabric
         Initialized += (_, _) => LoaderInit();
         Loaded += (_, _) => Init();
         InitializeComponent();
-        BtnWeb.Click += BtnWeb_Click;
     }
 
     private void LoaderInit()
@@ -35,7 +35,10 @@ public partial class PageDownloadLegacyFabric
                 PanVersions.Children.Add(DownloadUi.LegacyFabricDownloadListItem(
                     (JsonObject)Version,
                     (a, b) => this.LegacyFabric_Selected((MyListItem)a, b)));
-            CardVersions.Title = Lang.Text("Download.Version.VersionListCount", versions.Count);
+            LocalizedText.TryBind(
+                CardVersions,
+                "Title",
+                () => Lang.Text("Download.Version.VersionListCount", versions.Count));
         }
         catch (Exception ex)
         {
@@ -52,7 +55,7 @@ public partial class PageDownloadLegacyFabric
         DownloadUi.McDownloadLegacyFabricLoaderSave((JsonObject)sender.Tag);
     }
 
-    private void BtnWeb_Click(object sender, EventArgs e)
+    private void BtnWeb_Click(object sender, MouseButtonEventArgs e)
     {
         Common.OpenWebsite("https://legacyfabric.net/");
     }

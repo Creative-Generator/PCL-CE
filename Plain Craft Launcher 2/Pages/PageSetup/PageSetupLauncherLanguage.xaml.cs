@@ -3,10 +3,11 @@ using System.Windows;
 using System.Windows.Controls;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 
 namespace PCL;
 
-public partial class PageSetupLauncherLanguage
+public partial class PageSetupLauncherLanguage : IPageView
 {
     private readonly PageSetupLauncherLanguageViewModel _vm = new();
 
@@ -17,6 +18,14 @@ public partial class PageSetupLauncherLanguage
         InitializeComponent();
         DataContext = _vm;
         Loaded += PageSetupLauncherLanguage_Loaded;
+    }
+
+    public void OnNavigatedTo(object? parameter)
+    {
+    }
+
+    public void OnNavigatedFrom()
+    {
     }
 
     public PageSetupLauncherLanguageViewModel ViewModel => _vm;
@@ -59,7 +68,7 @@ public partial class PageSetupLauncherLanguage
             Config.Preference.Localization.FormatCultureConfig.SetDefaultValue();
             LocalizationService.ApplyFromConfig();
             Common.Log("[Setup] 已初始化启动器-语言页设置");
-            HintService.Hint(Lang.Text("Setup.Language.Reset.Success"), HintType.Success, false);
+            HintService.Show(Hints.Success(Lang.Text("Setup.Language.Reset.Success"), log: false));
             Reload();
         }
         catch (Exception ex)
@@ -76,10 +85,15 @@ public partial class PageSetupLauncherLanguage
     {
         ComboUiLanguage.Items.Clear();
         var autoLanguage = LocalizationService.ResolveLanguage(LocalizationService.Auto);
-        ComboUiLanguage.Items.Add(CreateLanguageComboItem(
-            Lang.Text("Setup.Language.UiLanguage.Auto", GetLanguageDisplay(autoLanguage)),
+        var autoLanguageItem = CreateLanguageComboItem(
+            string.Empty,
             LocalizationService.Auto,
-            autoLanguage));
+            autoLanguage);
+        LocalizedText.TryBind(
+            autoLanguageItem,
+            "Content",
+            () => Lang.Text("Setup.Language.UiLanguage.Auto", GetLanguageDisplay(autoLanguage)));
+        ComboUiLanguage.Items.Add(autoLanguageItem);
 
         foreach (var language in LocalizationService.SupportedLanguages)
             ComboUiLanguage.Items.Add(CreateLanguageComboItem(
@@ -91,16 +105,22 @@ public partial class PageSetupLauncherLanguage
     private void ReloadFormatCultureCombo()
     {
         ComboUiFormatCulture.Items.Clear();
-        ComboUiFormatCulture.Items.Add(new MyComboBoxItem
+        var autoFormatItem = new MyComboBoxItem
         {
-            Content = Lang.Text("Setup.Language.FormatCulture.Auto"),
             Tag = LocalizationService.Auto
-        });
-        ComboUiFormatCulture.Items.Add(new MyComboBoxItem
+        };
+        autoFormatItem.TrySetLocalizedValue(
+            "Content",
+            "Setup.Language.FormatCulture.Auto");
+        ComboUiFormatCulture.Items.Add(autoFormatItem);
+        var followLanguageFormatItem = new MyComboBoxItem
         {
-            Content = Lang.Text("Setup.Language.FormatCulture.FollowLanguage"),
             Tag = LocalizationService.FormatCultureFollowLanguage
-        });
+        };
+        followLanguageFormatItem.TrySetLocalizedValue(
+            "Content",
+            "Setup.Language.FormatCulture.FollowLanguage");
+        ComboUiFormatCulture.Items.Add(followLanguageFormatItem);
 
         foreach (var culture in PageSetupLauncherLanguageViewModel.GetBuiltInFormatCultures())
             ComboUiFormatCulture.Items.Add(new MyComboBoxItem
@@ -132,7 +152,7 @@ public partial class PageSetupLauncherLanguage
             return;
 
         Config.Preference.Localization.Language = value;
-        HintService.Hint(Lang.Text("Setup.Language.Changed"), HintType.Success, false);
+        HintService.Show(Hints.Success(Lang.Text("Setup.Language.Changed"), log: false));
         Reload();
     }
 
@@ -148,7 +168,7 @@ public partial class PageSetupLauncherLanguage
             return;
 
         Config.Preference.Localization.FormatCulture = value;
-        HintService.Hint(Lang.Text("Setup.Language.Changed"), HintType.Success, false);
+        HintService.Show(Hints.Success(Lang.Text("Setup.Language.Changed"), log: false));
         Reload();
     }
 

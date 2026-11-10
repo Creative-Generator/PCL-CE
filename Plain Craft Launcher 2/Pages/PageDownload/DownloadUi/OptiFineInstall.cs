@@ -3,7 +3,7 @@ using System.Globalization;
 using System.IO;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
-using PCL.Core.Minecraft;
+using PCL.Core.Minecraft.Java;
 using PCL.Network;
 
 namespace PCL;
@@ -108,7 +108,7 @@ public static partial class DownloadUi
             try
             {
                 javaLoader.Start(downloadJavaMajor, true);
-                while (javaLoader.State == Common.LoadState.Loading && !task.IsAborted)
+                while (javaLoader.State == LoadState.Loading && !task.IsAborted)
                     Thread.Sleep(10);
             }
             finally
@@ -202,7 +202,7 @@ public static partial class DownloadUi
 
             try
             {
-                if (task.State == Common.LoadState.Aborted && !process.HasExited)
+                if (task.State == LoadState.Aborted && !process.HasExited)
                 {
                     Common.Log("[Installer] 由于任务取消，已中止 OptiFine 安装");
                     process.Kill();
@@ -332,51 +332,52 @@ public static partial class DownloadUi
             task.Progress = 0.7d;
             var inheritInstance =
                 new McInstance(Path.Combine(mcFolder, "versions", inherit));
-            var releaseDate = string.IsNullOrEmpty(downloadInfo.ReleaseTime)
-                ? inheritInstance.releaseTime.ToString(
-                    "yyyy'-'MM'-'dd",
-                    CultureInfo.InvariantCulture)
-                : downloadInfo.ReleaseTime.Replace("/", "-");
-            var optiFineLibraryVersion = nameFile
+            var releaseDate = (downloadInfo.ReleaseTime ?? inheritInstance.releaseTime)
+                .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+            var optiFineVersion = nameFile
                 .Replace("OptiFine_", "")
                 .Replace(".jar", "")
                 .Replace("preview_", "");
-            var json =
-                $$"""
-                  {
-                      "id": "{{id}}",
-                      "inheritsFrom": "{{downloadInfo.Inherit}}",
-                      "time": "{{releaseDate}}T23:33:33+08:00",
-                      "releaseTime": "{{releaseDate}}T23:33:33+08:00",
-                      "type": "release",
-                      "libraries": [
-                          {"name": "optifine:OptiFine:{{optiFineLibraryVersion}}"},
-                          {"name": "net.minecraft:launchwrapper:1.12"}
-                      ],
-                      "mainClass": "net.minecraft.launchwrapper.Launch",
-                  """;
+            var jsonObject = new Dictionary<string, object?>
+            {
+                ["id"] = id,
+                ["inheritsFrom"] = downloadInfo.Inherit,
+                ["time"] = $"{releaseDate}T23:33:33+08:00",
+                ["releaseTime"] = $"{releaseDate}T23:33:33+08:00",
+                ["type"] = "release",
+                ["libraries"] = new object[]
+                {
+                    new { name = $"optifine:OptiFine:{optiFineVersion}" },
+                    new { name = "net.minecraft:launchwrapper:1.12" }
+                },
+                ["mainClass"] = "net.minecraft.launchwrapper.Launch"
+            };
             task.Progress = 0.8d;
             if (inheritInstance.IsOldJson)
-                json +=
-                    $$"""
-
-                          "minimumLauncherVersion": 18,
-                          "minecraftArguments": "{{inheritInstance.JsonObject["minecraftArguments"]}}  --tweakClass optifine.OptiFineTweaker"
-                      }
-                      """;
+            {
+                jsonObject["minimumLauncherVersion"] = 18;
+                jsonObject["minecraftArguments"] =
+                    $"{inheritInstance.JsonObject["minecraftArguments"]}  --tweakClass optifine.OptiFineTweaker";
+            }
             else
-                json +=
-                    """
+            {
+                jsonObject["minimumLauncherVersion"] = "21";
+                jsonObject["arguments"] = new
+                {
+                    game = (string[])
+                    [
+                        "--tweakClass",
+                        "optifine.OptiFineTweaker"
+                    ]
+                };
+            }
 
-                        "minimumLauncherVersion": "21",
-                        "arguments": {
-                            "game": [
-                                "--tweakClass",
-                                "optifine.OptiFineTweaker"
-                            ]
-                        }
-                    }
-                    """;
+            var json = JsonSerializer.Serialize(
+                jsonObject,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
             Common.WriteFile(Path.Combine(versionFolder, $"{id}.json"), json);
         }
         catch (Exception ex)

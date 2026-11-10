@@ -1,22 +1,20 @@
 ﻿using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 
 namespace PCL;
 
 public static partial class DownloadUi
 {
-    private static bool _IsOptiFineDownloadRunning(string? displayName)
+    private static bool _IsOptiFineDownloadRunning(string? nameVersion)
     {
         if (Loading
             .loaderTaskbar
             .ToList()
             .All(ongoingLoader =>
-                (ongoingLoader.name ?? "")
-                != (Lang.Text("Minecraft.Download.Stage.OptiFineDownload", displayName) ?? "")))
+                ongoingLoader.Identifier != DownloadIdentifier("OptiFine", nameVersion)))
             return false;
-        HintService.Hint(
-            Lang.Text("Minecraft.Download.Error.InstanceDownloading"),
-            HintType.Error);
+        HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.InstanceDownloading")));
         return true;
     }
 
@@ -32,7 +30,7 @@ public static partial class DownloadUi
             if (!target.Contains(@"\"))
                 return;
 
-            if (_IsOptiFineDownloadRunning(downloadInfo.DisplayName))
+            if (_IsOptiFineDownloadRunning(downloadInfo.NameVersion))
                 return;
 
             var loader = new Loading.LoaderCombo<GameDownload.DlOptiFineListEntry>(
@@ -40,7 +38,8 @@ public static partial class DownloadUi
                 McDownloadOptiFineSaveLoader(downloadInfo, target)
             )
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = DownloadIdentifier("OptiFine", downloadInfo.NameVersion)
             };
             loader.Start(downloadInfo);
             Loading.LoaderTaskbarAdd(loader);

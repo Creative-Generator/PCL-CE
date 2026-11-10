@@ -1,16 +1,17 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Media;
 using PCL.Core.App;
 using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 using System.Globalization;
 
 namespace PCL;
 
-public partial class PageLogRight
+public partial class PageLogRight : IPageView
 {
     public Run labDebug;
     public Run labError;
@@ -20,10 +21,13 @@ public partial class PageLogRight
 
     private readonly PageLogRightViewModel _vm = new();
 
+    private bool _refreshed;
+
     public PageLogRight()
     {
         Initialized += (_, _) => Init();
         Loaded += PageLogRight_Loaded;
+        Unloaded += PageLogRight_Unloaded;
         InitializeComponent();
         DataContext = _vm;
     }
@@ -33,15 +37,17 @@ public partial class PageLogRight
     public void Init()
     {
         PanLogCard.Inlines.Clear();
-        PanLogCard.Inlines.Add(new Run(Lang.Text("LogPage.Title")));
+        var titleRun = new Run();
+        titleRun.TrySetLocalizedValue("Text", "LogPage.Title");
+        PanLogCard.Inlines.Add(titleRun);
         PanLogCard.Inlines.Add(new Run(" | "));
-        labDebug = new Run($"0 {Lang.Text("LogPage.Level.Debug")}")
-            { Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushDebug"] };
-        labDebug.SetBinding(Run.TextProperty,
-            new Binding(nameof(PageLogRightViewModel.DebugCountText)) { Source = _vm });
+        labDebug = new Run
+        {
+            Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushDebug"]
+        };
         PanLogCard.Inlines.Add(labDebug);
         PanLogCard.Inlines.Add(new Run(" | "));
-        labInfo = new Run($"0 {Lang.Text("LogPage.Level.Info")}")
+        labInfo = new Run
         {
             Foreground =
                 (Brush)System.Windows.Application.Current.Resources[
@@ -51,27 +57,50 @@ public partial class PageLogRight
             new Binding(nameof(PageLogRightViewModel.InfoCountText)) { Source = _vm });
         PanLogCard.Inlines.Add(labInfo);
         PanLogCard.Inlines.Add(new Run(" | "));
-        labWarn = new Run($"0 {Lang.Text("LogPage.Level.Warn")}")
-            { Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushWarn"] };
-        labWarn.SetBinding(Run.TextProperty,
-            new Binding(nameof(PageLogRightViewModel.WarnCountText)) { Source = _vm });
+        labWarn = new Run
+        {
+            Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushWarn"]
+        };
         PanLogCard.Inlines.Add(labWarn);
         PanLogCard.Inlines.Add(new Run(" | "));
-        labError = new Run($"0 {Lang.Text("LogPage.Level.Error")}")
-            { Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushError"] };
-        labError.SetBinding(Run.TextProperty,
-            new Binding(nameof(PageLogRightViewModel.ErrorCountText)) { Source = _vm });
+        labError = new Run
+        {
+            Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushError"]
+        };
         PanLogCard.Inlines.Add(labError);
         PanLogCard.Inlines.Add(new Run(" | "));
-        labFatal = new Run($"0 {Lang.Text("LogPage.Level.Fatal")}")
-            { Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushFatal"] };
-        labFatal.SetBinding(Run.TextProperty,
-            new Binding(nameof(PageLogRightViewModel.FatalCountText)) { Source = _vm });
+        labFatal = new Run
+        {
+            Foreground = (Brush)System.Windows.Application.Current.Resources["ColorBrushFatal"]
+        };
         PanLogCard.Inlines.Add(labFatal);
+        RefreshLabText();
     }
 
     private void PageLogRight_Loaded(object sender, RoutedEventArgs e)
     {
+        RefreshOnNavigate();
+    }
+
+    private void PageLogRight_Unloaded(object sender, RoutedEventArgs e)
+    {
+        _refreshed = false;
+    }
+
+    public void OnNavigatedTo(object? parameter)
+    {
+        RefreshOnNavigate();
+    }
+
+    public void OnNavigatedFrom()
+    {
+    }
+
+    private void RefreshOnNavigate()
+    {
+        if (_refreshed)
+            return;
+        _refreshed = true;
         Animations.AniBeginControl();
         Reload();
         Animations.AniEndControl();
@@ -105,8 +134,32 @@ public partial class PageLogRight
     private void RefreshLabText()
     {
         // 刷新计数器
+        LocalizedText.TryBind(
+            labFatal,
+            "Text",
+            () => $"{GetCount(log => log.countFatal)} {Lang.Text("LogPage.Level.Fatal")}");
+        LocalizedText.TryBind(
+            labError,
+            "Text",
+            () => $"{GetCount(log => log.countError)} {Lang.Text("LogPage.Level.Error")}");
+        LocalizedText.TryBind(
+            labWarn,
+            "Text",
+            () => $"{GetCount(log => log.countWarn)} {Lang.Text("LogPage.Level.Warn")}");
+        LocalizedText.TryBind(
+            labInfo,
+            "Text",
+            () => $"{GetCount(log => log.countInfo)} {Lang.Text("LogPage.Level.Info")}");
+        LocalizedText.TryBind(
+            labDebug,
+            "Text",
+            () => $"{GetCount(log => log.countDebug)} {Lang.Text("LogPage.Level.Debug")}");
+    }
 
-        _vm.RefreshCounters();
+    private static uint GetCount(Func<GameWatcher.Watcher, uint> selector)
+    {
+        var log = Launcher.frmLogLeft?.currentLog;
+        return log is null ? 0u : selector(log);
     }
 
     private void OnLogOutput(GameWatcher.Watcher sender, GameWatcher.LogOutputEventArgs e)
@@ -149,7 +202,7 @@ public partial class PageLogRight
         if (savePath.Length < 3)
             return;
         File.WriteAllLines(savePath, Launcher.frmLogLeft.currentLog.fullLog);
-        HintService.Hint(Lang.Text("LogPage.Export.Success"), HintType.Success);
+        HintService.Show(Hints.Success(Lang.Text("LogPage.Export.Success")));
         Common.OpenExplorer(savePath);
     }
 
@@ -158,8 +211,7 @@ public partial class PageLogRight
         if (Launcher.frmLogLeft.currentLog.State <= GameWatcher.Watcher.MinecraftState.Running)
         {
             Launcher.frmLogLeft.currentLog.Kill();
-            HintService.Hint(Lang.Text("LogPage.Action.GameClosed", Launcher.frmLogLeft.currentLog.version.Name),
-                HintType.Success);
+            HintService.Show(Hints.Success(Lang.Text("LogPage.Action.GameClosed", Launcher.frmLogLeft.currentLog.version.Name)));
         }
     }
 
@@ -174,7 +226,7 @@ public partial class PageLogRight
             Lang.Text("LogPage.ExportStack.Filter"));
         if (savePath.Length < 3)
             return;
-        HintService.Hint(Lang.Text("LogPage.ExportStack.Progress"));
+        HintService.Show(Hints.Info(Lang.Text("LogPage.ExportStack.Progress")));
         _vm.IsExportStackDumpEnabled = false;
         Common.RunInNewThread(() =>
         {
@@ -182,7 +234,7 @@ public partial class PageLogRight
             File.WriteAllLines(savePath, dump);
             Common.RunInUi(() =>
             {
-                HintService.Hint(Lang.Text("LogPage.ExportStack.Success"), HintType.Success);
+                HintService.Show(Hints.Success(Lang.Text("LogPage.ExportStack.Success")));
                 _vm.IsExportStackDumpEnabled = true;
             });
             Common.OpenExplorer(savePath);

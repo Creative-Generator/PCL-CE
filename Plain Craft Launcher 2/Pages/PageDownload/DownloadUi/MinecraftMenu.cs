@@ -1,13 +1,13 @@
-﻿using System.IO;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using PCL.Core.App.Localization;
 using PCL.Core.Minecraft;
 using PCL.Core.UI;
-using PCL.Core.Utils;
+using PCL.Core.UI.Hints;
 using PCL.Network;
 using PCL.Network.Loaders;
+using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace PCL;
 
@@ -18,70 +18,45 @@ public static partial class DownloadUi
         MyListItem.ClickEventHandler onClick,
         bool isSaveOnly)
     {
-        var logo = (entry["type"]?.ToString() ?? "") switch
-        {
-            "release" => $"{Common.PathImage}Blocks/Grass.png",
-            "snapshot" or "pending" => $"{Common.PathImage}Blocks/CommandBlock.png",
-            "special" => $"{Common.PathImage}Blocks/GoldBlock.png",
-            _ => $"{Common.PathImage}Blocks/CobbleStone.png"
-        };
-
-        var versionId = entry["id"]?.ToString() ?? "";
-        var formattedVersion = McFormatter.FormatVersion(versionId).Replace("_", " ");
+        var row = GameVersionItemViewModel.FromEntry(entry);
         var newItem = new MyListItem
         {
-            Logo = logo,
+            Logo = row.Logo,
             SnapsToDevicePixels = true,
-            Title = formattedVersion,
+            Title = row.Title,
             Height = 42d,
             Type = MyListItem.CheckType.Clickable,
-            Tag = entry
+            Tag = row.Entry
         };
-        if (entry["lore"] is null)
-        {
-            var releaseDate = entry["releaseTime"]?.ToObject<DateTime>() ?? default;
-            if (formattedVersion != versionId)
-                newItem.Info = $"{Lang.Date(releaseDate, "g")} | {entry["id"]}";
-            else
-                newItem.Info = Lang.Date(releaseDate, "g");
-        }
-        else if (formattedVersion != versionId)
-        {
-            newItem.Info = $"{entry["lore"]} | {entry["id"]}";
-        }
-        else
-        {
-            newItem.Info = entry["lore"]?.ToString() ?? "";
-        }
-
-        if ((entry["url"]?.ToString() ?? "").Contains("unlisted-versions-of-minecraft"))
-            newItem.Tags = Lang.Text("Download.Source.Tag.Uvmc");
+        LocalizedText.TryBind(newItem, "Info", () => row.Info.Value);
+        if (row.Tags is not null)
+            newItem.Tags = row.Tags;
         newItem.Click += onClick;
-        if (isSaveOnly)
-            newItem.ContentHandler = McDownloadSaveMenuBuild;
-        else
-            newItem.ContentHandler = McDownloadMenuBuild;
+        McDownloadListItemAttachMenu(newItem, isSaveOnly);
         return newItem;
+    }
+
+    /// <summary>
+    ///     为版本列表项挂上懒加载的右键菜单。<br />
+    ///     <see cref="MyListItem.ContentHandler" /> 不是依赖属性，XAML 数据模板无法直接设置，需在 code-behind 里调用。
+    /// </summary>
+    public static void McDownloadListItemAttachMenu(MyListItem item, bool isSaveOnly = true)
+    {
+        if (isSaveOnly)
+            item.ContentHandler = McDownloadSaveMenuBuild;
+        else
+            item.ContentHandler = McDownloadMenuBuild;
     }
 
     private static void McDownloadSaveMenuBuild(object sender, EventArgs _)
     {
-        var btnInfo = new MyIconButton
-        {
-            LogoScale = 1.05d,
-            SvgIcon = "lucide/info",
-            ToolTip = Lang.Text("Download.Version.Changelog")
-        };
+        var btnInfo = CreateChangelogButton();
         ToolTipService.SetPlacement(btnInfo, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnInfo, 30d);
         ToolTipService.SetHorizontalOffset(btnInfo, 2d);
         btnInfo.Click += (ss, ee) => McDownloadMenuLog(ss, (dynamic)ee);
-        var btnServer = new MyIconButton
-        {
-            LogoScale = 1d,
-            SvgIcon = "lucide/server",
-            ToolTip = Lang.Text("Download.Version.DownloadServer")
-        };
+        var btnServer = new MyIconButton { LogoScale = 1d, SvgIcon = "lucide/server" };
+        McDownloadContMenuLocalize(btnServer, "Download.Version.DownloadServer");
         ToolTipService.SetPlacement(btnServer, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnServer, 30d);
         ToolTipService.SetHorizontalOffset(btnServer, 2d);
@@ -95,31 +70,19 @@ public static partial class DownloadUi
 
     private static void McDownloadMenuBuild(object sender, EventArgs e)
     {
-        var btnSave = new MyIconButton
-        {
-            SvgIcon = "lucide/save",
-            ToolTip = Lang.Text("Download.Version.SaveAs")
-        };
+        var btnSave = new MyIconButton { SvgIcon = "lucide/save" };
+        McDownloadContMenuLocalize(btnSave, "Download.Version.SaveAs");
         ToolTipService.SetPlacement(btnSave, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnSave, 30d);
         ToolTipService.SetHorizontalOffset(btnSave, 2d);
         btnSave.Click += (a, b) => McDownloadMenuSave(a, (dynamic)b);
-        var btnInfo = new MyIconButton
-        {
-            LogoScale = 1.05d,
-            SvgIcon = "lucide/info",
-            ToolTip = Lang.Text("Download.Version.Changelog")
-        };
+        var btnInfo = CreateChangelogButton();
         ToolTipService.SetPlacement(btnInfo, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnInfo, 30d);
         ToolTipService.SetHorizontalOffset(btnInfo, 2d);
         btnInfo.Click += (a, b) => McDownloadMenuLog(a, (dynamic)b);
-        var btnServer = new MyIconButton
-        {
-            LogoScale = 1d,
-            SvgIcon = "lucide/server",
-            ToolTip = Lang.Text("Download.Version.DownloadServer")
-        };
+        var btnServer = new MyIconButton { LogoScale = 1d, SvgIcon = "lucide/server" };
+        McDownloadContMenuLocalize(btnServer, "Download.Version.DownloadServer");
         ToolTipService.SetPlacement(btnServer, PlacementMode.Center);
         ToolTipService.SetVerticalOffset(btnServer, 30d);
         ToolTipService.SetHorizontalOffset(btnServer, 2d);
@@ -170,18 +133,15 @@ public static partial class DownloadUi
             var id = version.Title;
             var jsonUrl = ((JsonObject)version.Tag)["url"]!.ToString();
             var versionFolder = SystemDialogs.SelectFolder();
-            if (!versionFolder.Contains(@"\"))
+            if (!versionFolder.Contains('\\'))
                 return;
             versionFolder = Path.Combine(versionFolder, id);
 
             foreach (var ongoingLoader in Loading.loaderTaskbar.ToList())
             {
-                if ((ongoingLoader.name ?? "")
-                    != (Lang.Text("Minecraft.Download.Stage.MinecraftDownload", id) ?? ""))
+                if (ongoingLoader.Identifier != McDownloadStageId(id))
                     continue;
-                HintService.Hint(
-                    Lang.Text("Minecraft.Download.Error.InstanceDownloading"),
-                    HintType.Error);
+                HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.InstanceDownloading")));
                 return;
             }
 
@@ -193,7 +153,7 @@ public static partial class DownloadUi
                         new DownloadFile(
                             GameDownload.DlSourceLauncherOrMetaGet(jsonUrl),
                             Path.Combine(versionFolder, $"{id}.json"),
-                            new Common.FileChecker(canUseExistsFile: false, isJson: true)
+                            new FileChecker(canUseExistsFile: false, isJson: true)
                         )
                     ]
                 )
@@ -221,7 +181,8 @@ public static partial class DownloadUi
                 Lang.Text("Minecraft.Download.Stage.MinecraftDownload", id),
                 loaders)
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = McDownloadStageId(id)
             };
             loader.Start(id);
             Loading.LoaderTaskbarAdd(loader);

@@ -1,20 +1,20 @@
-using System.Collections.Specialized;
+using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Threading;
-using PCL.Core.App.Localization;
 
 namespace PCL;
 
 public partial class PageInstanceSaves : IRefreshable, IPageView
 {
-    private readonly DispatcherTimer fileSystemRefreshTimer;
-    private readonly DispatcherTimer searchTimer;
+    private readonly DispatcherTimer _fileSystemRefreshTimer;
+    private readonly DispatcherTimer _searchTimer;
     private readonly PageInstanceSavesViewModel _vm = new();
-    private FileSystemWatcher? fileSystemWatcher;
+    private FileSystemWatcher? _fileSystemWatcher;
     private bool _initialized;
     private bool _refreshed;
 
@@ -22,13 +22,12 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         InitializeComponent();
         DataContext = _vm;
-        fileSystemRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100d) };
-        searchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100d) };
+        _fileSystemRefreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100d) };
+        _searchTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100d) };
         Loaded += PageSetupLaunch_Loaded;
         Unloaded += Page_Unloaded;
-        fileSystemRefreshTimer.Tick += FileSystemRefreshTimer_Tick;
-        searchTimer.Tick += SearchTimer_Tick;
-        SearchBox.TextChanged += SearchRun;
+        _fileSystemRefreshTimer.Tick += FileSystemRefreshTimer_Tick;
+        _searchTimer.Tick += SearchTimer_Tick;
     }
 
     public PageInstanceSavesViewModel ViewModel => _vm;
@@ -57,8 +56,8 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         if (Launcher.frmInstanceSaves is not null)
             Launcher.frmInstanceSaves.Reload();
-        Launcher.frmInstanceLeft.ItemWorld.Checked = true;
-        HintService.Hint(Lang.Text("Instance.Saves.Status.Refreshing"), log: false);
+        Launcher.frmInstanceLeft!.ItemWorld.Checked = true;
+        HintService.Show(Hints.Info(Lang.Text("Instance.Saves.Status.Refreshing"), log: false));
     }
 
     private void PageSetupLaunch_Loaded(object sender, RoutedEventArgs e)
@@ -93,10 +92,9 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         try
         {
-            await _vm.EnsureWorldFolderAsync();
-            await _vm.LoadListAsync();
-            PanNoWorld.UpdateLayout();
-            PanContent.UpdateLayout();
+            await _vm.EnsureWorldFolderAsync().ConfigureAwait(true);
+            await _vm.LoadListAsync().ConfigureAwait(true);
+            await Dispatcher.Yield(DispatcherPriority.Loaded);
             RebuildList();
         }
         catch (Exception ex)
@@ -117,7 +115,7 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         try
         {
-            await _vm.ApplySortAsync(method);
+            await _vm.ApplySortAsync(method).ConfigureAwait(true);
             RebuildList();
         }
         catch (Exception ex)
@@ -131,9 +129,8 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
     {
         try
         {
-            await _vm.SearchAsync();
-            PanNoWorld.UpdateLayout();
-            PanContent.UpdateLayout();
+            await _vm.SearchAsync().ConfigureAwait(true);
+            await Dispatcher.Yield(DispatcherPriority.Loaded);
             RebuildList();
         }
         catch (Exception ex)
@@ -171,16 +168,19 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             Logo = entry.Logo,
             Title = entry.Title,
             Info = entry.Info,
-            Type = MyListItem.CheckType.Clickable
+            Type = MyListItem.CheckType.Clickable,
+            Command = _vm.OpenDetailsCommand,
+            CommandParameter = curFolder,
+            LogoCornerRadius = new CornerRadius(6)
         };
-        worldItem.Click += (_, _) => OpenSaveDetails(curFolder);
 
         var btnOpen = new MyIconButton
         {
             SvgIcon = "lucide/folder-open",
-            ToolTip = Lang.Text("Common.Action.Open")
+            ToolTip = Lang.Text("Common.Action.Open"),
+            Command = _vm.OpenSaveFolderCommand,
+            CommandParameter = curFolder
         };
-        btnOpen.Click += (_, _) => Common.OpenExplorer(curFolder);
 
         var btnDelete = new MyIconButton
         {
@@ -193,9 +193,9 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             worldItem.Info = Lang.Text("Instance.Saves.Deleting");
             try
             {
-                if (await _vm.DeleteSaveAsync(curFolder))
+                if (await _vm.DeleteSaveAsync(curFolder).ConfigureAwait(true))
                 {
-                    HintService.Hint(Lang.Text("Instance.Saves.DeletedToRecycleBin"));
+                    HintService.Show(Hints.Info(Lang.Text("Instance.Saves.DeletedToRecycleBin")));
                     RemoveItem(worldItem);
                     return;
                 }
@@ -213,23 +213,26 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         var btnCopy = new MyIconButton
         {
             SvgIcon = "lucide/copy",
-            ToolTip = Lang.Text("Common.Action.Copy")
+            ToolTip = Lang.Text("Common.Action.Copy"),
+            Command = _vm.CopySaveCommand,
+            CommandParameter = curFolder
         };
-        btnCopy.Click += (_, _) => CopySaveToClipboard(curFolder);
 
         var btnInfo = new MyIconButton
         {
             SvgIcon = "lucide/info",
-            ToolTip = Lang.Text("Instance.Saves.Details")
+            ToolTip = Lang.Text("Instance.Saves.Details"),
+            Command = _vm.OpenDetailsCommand,
+            CommandParameter = curFolder
         };
-        btnInfo.Click += (_, _) => OpenSaveDetails(curFolder);
 
         var btnLaunch = new MyIconButton
         {
             SvgIcon = "lucide/play",
-            ToolTip = Lang.Text("Instance.Saves.QuickPlay")
+            ToolTip = Lang.Text("Instance.Saves.QuickPlay"),
+            Command = _vm.LaunchSaveCommand,
+            CommandParameter = curFolder
         };
-        btnLaunch.Click += (_, _) => LaunchSave(curFolder);
 
         worldItem.Buttons = _vm.QuickPlayEnabled
             ? [btnOpen, btnDelete, btnCopy, btnInfo, btnLaunch]
@@ -237,94 +240,51 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         return worldItem;
     }
 
-    private static void OpenSaveDetails(string curFolder)
-    {
-        Launcher.frmMain.PageChange(new FormMain.PageStackData
-        {
-            page = FormMain.PageType.VersionSaves,
-            additional = (null, null, null, Comp.CompLoaderType.Any, Comp.CompType.Any, curFolder)
-        });
-    }
-
-    private static void LaunchSave(string curFolder)
-    {
-        var launchOptions = new GameLaunch.McLaunchOptions
-        {
-            WorldName = Path.GetFileName(curFolder),
-            instance = PageInstanceLeft.McInstance
-        };
-        GameLaunch.McLaunchStart(launchOptions);
-        Launcher.frmMain.PageChange(new FormMain.PageStackData { page = FormMain.PageType.Launch });
-    }
-
-    private static void CopySaveToClipboard(string curFolder)
-    {
-        try
-        {
-            if (Directory.Exists(curFolder))
-            {
-                Clipboard.SetFileDropList(new StringCollection { curFolder });
-                HintService.Hint(Lang.Text("Instance.Saves.CopiedToClipboard"));
-                HintService.Hint(Lang.Text("Instance.Saves.CopyPasteWarning"));
-            }
-            else
-            {
-                HintService.Hint(Lang.Text("Instance.Saves.FolderNotFound"));
-            }
-        }
-        catch (Exception ex)
-        {
-            Common.Log(ex, Lang.Text("Instance.Saves.CopyFailed"), Common.LogLevel.Hint,
-                userSummary: Lang.Text("Instance.Saves.CopyFailed"));
-        }
-    }
-
     private void SetupFileSystemWatcher()
     {
-        if (fileSystemWatcher is not null)
-            fileSystemWatcher.Dispose();
+        _fileSystemWatcher?.Dispose();
 
         var worldPath = _vm.WorldPath;
         if (!Directory.Exists(worldPath))
             Directory.CreateDirectory(worldPath);
 
-        fileSystemWatcher = new FileSystemWatcher
+        _fileSystemWatcher = new FileSystemWatcher
         {
             Path = worldPath,
             IncludeSubdirectories = false,
             NotifyFilter = NotifyFilters.DirectoryName | NotifyFilters.LastWrite
         };
-        fileSystemWatcher.Created += OnFileSystemChanged;
-        fileSystemWatcher.Deleted += OnFileSystemChanged;
-        fileSystemWatcher.Renamed += OnFileSystemChanged;
-        fileSystemWatcher.EnableRaisingEvents = true;
+        _fileSystemWatcher.Created += OnFileSystemChanged;
+        _fileSystemWatcher.Deleted += OnFileSystemChanged;
+        _fileSystemWatcher.Renamed += OnFileSystemChanged;
+        _fileSystemWatcher.EnableRaisingEvents = true;
     }
 
     private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
     {
-        fileSystemRefreshTimer.Stop();
-        fileSystemRefreshTimer.Start();
+        _fileSystemRefreshTimer.Stop();
+        _fileSystemRefreshTimer.Start();
     }
 
-    private void FileSystemRefreshTimer_Tick(object sender, EventArgs e)
+    private void FileSystemRefreshTimer_Tick(object? sender, EventArgs e)
     {
-        fileSystemRefreshTimer.Stop();
-        Common.RunInUi(() => Reload(), true);
+        _fileSystemRefreshTimer.Stop();
+        Common.RunInUi(Reload, true);
     }
 
     private void Page_Unloaded(object sender, RoutedEventArgs e)
     {
-        if (fileSystemWatcher is not null)
+        if (_fileSystemWatcher is not null)
         {
-            fileSystemWatcher.Created -= OnFileSystemChanged;
-            fileSystemWatcher.Deleted -= OnFileSystemChanged;
-            fileSystemWatcher.Renamed -= OnFileSystemChanged;
-            fileSystemWatcher.Dispose();
-            fileSystemWatcher = null;
+            _fileSystemWatcher.Created -= OnFileSystemChanged;
+            _fileSystemWatcher.Deleted -= OnFileSystemChanged;
+            _fileSystemWatcher.Renamed -= OnFileSystemChanged;
+            _fileSystemWatcher.Dispose();
+            _fileSystemWatcher = null;
         }
 
-        fileSystemRefreshTimer.Stop();
-        searchTimer.Stop();
+        _fileSystemRefreshTimer.Stop();
+        _searchTimer.Stop();
         _refreshed = false;
     }
 
@@ -334,11 +294,6 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             return;
         PanList.Children.Remove(item);
         _ = RefreshUiAsync();
-    }
-
-    private void BtnOpenFolder_Click(object sender, MouseButtonEventArgs e)
-    {
-        Common.OpenExplorer(_vm.WorldPath);
     }
 
     private void BtnPaste_Click(object sender, MouseButtonEventArgs e)
@@ -351,8 +306,8 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
             {
                 var copied = PageInstanceSavesViewModel.CopySaveFolders(files, worldPath);
                 if (copied > 0)
-                    HintService.Hint(Lang.Text("Instance.Saves.PastedCount", copied.ToString()), HintType.Success);
-                Common.RunInUi(() => Reload());
+                    HintService.Show(Hints.Success(Lang.Text("Instance.Saves.PastedCount", copied.ToString())));
+                Common.RunInUi(Reload);
             })
         };
         var loader = new Loading.LoaderCombo<int>(
@@ -362,14 +317,8 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
         };
         loader.Start(1);
         Loading.LoaderTaskbarAdd(loader);
-        Launcher.frmMain.BtnExtraDownload.ShowRefresh();
+        Launcher.frmMain!.BtnExtraDownload.ShowRefresh();
         Launcher.frmMain.BtnExtraDownload.Ribble();
-    }
-
-    private void BtnDownloadNew_Click(object sender, MouseButtonEventArgs e)
-    {
-        Launcher.frmMain.PageChange(FormMain.PageType.Download, FormMain.PageSubType.DownloadWorld);
-        PageComp.targetVersion = PageInstanceLeft.McInstance;
     }
 
     private void BtnSortClick(object sender, EventArgs e)
@@ -389,13 +338,13 @@ public partial class PageInstanceSaves : IRefreshable, IPageView
 
     private void SearchRun(object sender, EventArgs e)
     {
-        searchTimer.Stop();
-        searchTimer.Start();
+        _searchTimer.Stop();
+        _searchTimer.Start();
     }
 
-    private void SearchTimer_Tick(object sender, EventArgs e)
+    private void SearchTimer_Tick(object? sender, EventArgs e)
     {
-        searchTimer.Stop();
+        _searchTimer.Stop();
         _ = RefreshUiAsync();
     }
 }

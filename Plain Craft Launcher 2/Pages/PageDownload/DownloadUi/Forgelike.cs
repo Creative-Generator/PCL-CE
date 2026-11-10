@@ -1,4 +1,5 @@
 ﻿using PCL.Core.App.Localization;
+using PCL.Core.UI.Hints;
 using PCL.Core.UI;
 using PCL.Network;
 using PCL.Network.Loaders;
@@ -23,7 +24,7 @@ public static partial class DownloadUi
             if (!target.Contains(@"\"))
                 return;
 
-            if (_IsForgelikeDownloadRunning(displayName))
+            if (_IsForgelikeDownloadRunning(info))
                 return;
 
             var loaders = new List<Loading.LoaderBase>
@@ -42,7 +43,10 @@ public static partial class DownloadUi
                 loaders
             )
             {
-                OnStateChanged = LoaderStateChangedHintOnly
+                OnStateChanged = LoaderStateChangedHintOnly,
+                Identifier = DownloadIdentifier(
+                    "Forgelike",
+                    $"{info.forgeType}:{info.Inherit}:{info.VersionName}")
             };
             loader.Start(info);
             Loading.LoaderTaskbarAdd(loader);
@@ -60,17 +64,16 @@ public static partial class DownloadUi
         }
     }
 
-    private static bool _IsForgelikeDownloadRunning(string displayName)
+    private static bool _IsForgelikeDownloadRunning(GameDownload.DlForgelikeEntry info)
     {
         if (Loading
             .loaderTaskbar
             .ToList()
-            .Any(ongoingLoader => (ongoingLoader.name ?? "")
-                == (Lang.Text("Minecraft.Download.Stage.ForgelikeDownload", displayName) ?? "")))
+            .Any(ongoingLoader => ongoingLoader.Identifier == DownloadIdentifier(
+                "Forgelike",
+                $"{info.forgeType}:{info.Inherit}:{info.VersionName}")))
         {
-            HintService.Hint(
-                Lang.Text("Minecraft.Download.Error.InstanceDownloading"),
-                HintType.Error);
+            HintService.Show(Hints.Error(Lang.Text("Minecraft.Download.Error.InstanceDownloading")));
             return true;
         }
 
@@ -99,7 +102,7 @@ public static partial class DownloadUi
                             url
                         ],
                         target,
-                        new Common.FileChecker(64 * 1024)
+                        new FileChecker(64 * 1024)
                     )
                 );
                 break;
@@ -109,7 +112,7 @@ public static partial class DownloadUi
             {
                 var cleanroom = (GameDownload.DlCleanroomListEntry)info;
                 var url = $"{cleanroom.UrlBase}-installer.jar";
-                files.Add(new DownloadFile([url], target, new Common.FileChecker(64 * 1024)));
+                files.Add(new DownloadFile([url], target, new FileChecker(64 * 1024)));
                 break;
             }
 
@@ -129,7 +132,7 @@ public static partial class DownloadUi
                             $"https://files.minecraftforge.net/maven/net/minecraftforge/forge/{fileName}"
                         ],
                         target,
-                        new Common.FileChecker(64 * 1024, hash: forge.Hash)
+                        new FileChecker(64 * 1024, hash: forge.Hash)
                     )
                 );
                 break;
